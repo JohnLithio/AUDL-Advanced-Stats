@@ -94,15 +94,15 @@ class Season:
                         )
                         games.append(game_url)
 
+                    self.save_game_urls(url_list=sorted(games))
+
             self.game_urls = sorted(games)
 
         return self.game_urls
 
-    def save_game_urls(self):
+    def save_game_urls(self, url_list):
         """Save all game urls into a database."""
-        df = pd.DataFrame(
-            data=[[x] for x in self.get_game_urls(override=True)], columns=["url"],
-        )
+        df = pd.DataFrame(data=[[x] for x in url_list], columns=["url"],)
 
         conn = create_connection(self.database_path)
         df.to_sql("game_urls", con=conn, if_exists="replace", index=False)
