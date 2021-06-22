@@ -77,7 +77,6 @@ class Season:
 
             # Retrieve URLs from website if they are not in DB or override is True
             if len(games) == 0 or override:
-                print("going online")
                 # Get all games in all weeks
                 games = []
                 for week_url in self.get_weeks_urls():
