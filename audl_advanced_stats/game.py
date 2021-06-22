@@ -727,7 +727,7 @@ class Game:
 
         return times_cluster
 
-    def visual_game_flow(self, home=True, qc=True):
+    def visual_game_flow(self, color="point_outcome", home=True, qc=True):
         """Gantt chart showing the substitution patterns of a team throughout 1 game."""
         # Monkey patch for plotly so that we don't need to use datetimes for x-axis of gantt
         def my_process_dataframe_timeline(args):
@@ -825,7 +825,7 @@ class Game:
             x_start="s_before_total",
             x_end="s_after_total",
             y="name",
-            color="point_outcome",
+            color=color,
             category_orders={"name": name_order},
         )
         fig.layout.xaxis.type = "linear"
