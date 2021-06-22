@@ -873,6 +873,7 @@ class Game:
                 line=dict(width=0),
                 fillcolor=px.colors.qualitative.Set2[i],
                 opacity=0.2,
+                layer="below",
             )
 
         # Show info about o-point/d-point
@@ -883,6 +884,8 @@ class Game:
         # TODO: option to mark timeouts and injuries
         # TODO: Option to color by # of turns
         # TODO: clean up legend labels and y-axis label
+        # TODO: Change colors
+        # TODO: Try annotating graph to label O, D1, D2
         return fig
 
     def get_player_stats(self):
