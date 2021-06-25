@@ -266,10 +266,10 @@ class Game:
                     None,
                 ),
                 # Mark the first event of each point
-                point_start=lambda x: x["o_point"] | x["d_point"],
+                point_start=lambda x: (x["o_point"] == True) | (x["d_point"] == True),
                 # Count the number of points played and label each one
                 point_number=lambda x: np.where(
-                    x["point_start"], x.groupby(["point_start"]).cumcount() + 1, None
+                    x["point_start"], x.groupby(["point_start"]).cumcount() + 2, None
                 ),
                 # Mark the first event of each possession
                 # These occur after turns, scores, and the end of periods
@@ -303,7 +303,9 @@ class Game:
                     x["point_outcome"],
                 ),
                 # Fill in the point number for every event
-                point_number=lambda x: x["point_number"].fillna(method="ffill"),
+                point_number=lambda x: x["point_number"]
+                .fillna(method="ffill")
+                .fillna(1),
                 # Fill in the possession number for every event
                 possession_number=lambda x: x["possession_number"]
                 .fillna(method="ffill")
@@ -330,17 +332,31 @@ class Game:
             # Mark whether each point was a hold, break, or neither
             .assign(
                 point_hold=lambda x: np.where(
-                    ((x["point_outcome"] == EVENT_TYPES[22]) & (x["o_point"]))
-                    | ((x["point_outcome"] == EVENT_TYPES[21]) & (~x["o_point"])),
+                    (x["point_outcome"] == EVENT_TYPES[22]) & (x["o_point"]),
                     "Hold",
                     "End of Quarter",
                 ),
             )
+            # Mark whether each point was a hold, break, or neither
             .assign(
                 point_hold=lambda x: np.where(
-                    ((x["point_outcome"] == EVENT_TYPES[21]) & (x["o_point"]))
-                    | ((x["point_outcome"] == EVENT_TYPES[22]) & (~x["o_point"])),
+                    (x["point_outcome"] == EVENT_TYPES[21]) & (~x["o_point"]),
+                    "Opponent Hold",
+                    x["point_hold"],
+                ),
+            )
+            # Mark whether each point was a hold, break, or neither
+            .assign(
+                point_hold=lambda x: np.where(
+                    (x["point_outcome"] == EVENT_TYPES[22]) & (~x["o_point"]),
                     "Break",
+                    x["point_hold"],
+                ),
+            )
+            .assign(
+                point_hold=lambda x: np.where(
+                    (x["point_outcome"] == EVENT_TYPES[21]) & (x["o_point"]),
+                    "Opponent Break",
                     x["point_hold"],
                 ),
             )
@@ -350,26 +366,41 @@ class Game:
         )
 
         # Identify which team was on offense for each possession
-        df = df.merge(
-            # Get the first possession ID for every point
-            df.groupby(["point_number"])["possession_number"]
-            .min()
-            .reset_index()[["point_number", "possession_number"]],
-            how="left",
-            on=["point_number"],
-            suffixes=["", "_min"],
-        ).assign(
-            # Offensive possession if the possession ID is the same as the
-            #     initial possession ID for that point, or if it's 2 higher,
-            #     4 higher, 6 higher, etc.
-            offensive_possession=lambda x: np.where(
-                x["o_point"],
-                (x["possession_number_min"] - x["possession_number"]) % 2 == 0,
-                (x["possession_number_min"] - x["possession_number"]) % 2 != 0,
-            ),
-            offensive_team=lambda x: np.where(
-                x["offensive_possession"], x["team_id"], x["opponent_team_id"]
-            ),
+        df = (
+            df.merge(
+                # Get the first possession ID for every point
+                df.groupby(["point_number"])["possession_number"]
+                .min()
+                .reset_index()[["point_number", "possession_number"]],
+                how="left",
+                on=["point_number"],
+                suffixes=["", "_min"],
+            )
+            .merge(
+                # Get the last possession ID for every point
+                df.groupby(["point_number"])["possession_number"]
+                .max()
+                .reset_index()[["point_number", "possession_number"]],
+                how="left",
+                on=["point_number"],
+                suffixes=["", "_max"],
+            )
+            .assign(
+                # Offensive possession if the possession ID is the same as the
+                #     initial possession ID for that point, or if it's 2 higher,
+                #     4 higher, 6 higher, etc.
+                offensive_possession=lambda x: np.where(
+                    x["o_point"],
+                    (x["possession_number_min"] - x["possession_number"]) % 2 == 0,
+                    (x["possession_number_min"] - x["possession_number"]) % 2 != 0,
+                ),
+                offensive_team=lambda x: np.where(
+                    x["offensive_possession"], x["team_id"], x["opponent_team_id"]
+                ),
+                num_turnovers=lambda x: (
+                    x["possession_number_max"] - x["possession_number_min"]
+                ).astype(int),
+            )
         )
 
         return df
@@ -716,6 +747,7 @@ class Game:
                 ],
                 ascending=[False, True, False, True, True],
             )
+            .assign(o_point=lambda x: np.where(x["o_point"], "O-Point", "D-Point"),)
             .reset_index(drop=True)
         )
 
@@ -766,6 +798,7 @@ class Game:
             "o_point",
             "point_outcome",
             "point_hold",
+            "num_turnovers",
             "period",
             "s_before_total",
             "s_after_total",
@@ -818,6 +851,13 @@ class Game:
 
         # Get the order in which we want to show the players on the y-axis
         name_order = times_cluster.groupby(["name"]).head(1)["name"].values
+        point_hold_order = [
+            "Hold",
+            "Break",
+            "Opponent Hold",
+            "Opponent Break",
+            "End of Quarter",
+        ]
 
         # Create the figure
         fig = px.timeline(
@@ -826,7 +866,7 @@ class Game:
             x_end="s_after_total",
             y="name",
             color=color,
-            category_orders={"name": name_order},
+            category_orders={"name": name_order, "point_hold": point_hold_order},
         )
         fig.layout.xaxis.type = "linear"
 
@@ -843,13 +883,29 @@ class Game:
         if times_cluster["s_after_total"].max() > 4 * 12 * 60:
             xticks[60 * 12 * 4 + 60 * 5 * 1] = "End of OT1"
 
-        # Add tick labels to fig
         fig.update_layout(
+            # Add tick labels to fig
             xaxis=dict(
                 tickmode="array",
                 tickvals=list(xticks.keys()),
                 ticktext=list(xticks.values()),
-            )
+            ),
+            # Remove y axis title
+            yaxis=dict(title=None,),
+            # Remove legend title
+            legend_title=None,
+            # Set title and colors for turnovers
+            coloraxis_colorbar_title="Turns During Point",
+            coloraxis_colorscale=[
+                [0, "rgb(100,100,100)"],
+                [0.33, "rgb(255,255,0)"],
+                [0.67, "rgb(255,123,0)"],
+                [1, "rgb(255,0,0)"],
+            ],
+            coloraxis_colorbar_tick0=0,
+            coloraxis_colorbar_dtick=1,
+            # Change font
+            font_family="TW Cen MT",
         )
 
         # Set the ranges for shading the chart by cluster
@@ -882,8 +938,6 @@ class Game:
         # On hover, show start and end time of possession, total time, outcome, possession numbers, player stats?
         #     player stats could be completions, receptions, yards, Ds, whether they scored
         # TODO: option to mark timeouts and injuries
-        # TODO: Option to color by # of turns
-        # TODO: clean up legend labels and y-axis label
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
         return fig
