@@ -897,10 +897,10 @@ class Game:
             # Set title and colors for turnovers
             coloraxis_colorbar_title="Turns During Point",
             coloraxis_colorscale=[
-                [0, "rgb(100,100,100)"],
-                [0.33, "rgb(255,255,0)"],
-                [0.67, "rgb(255,123,0)"],
-                [1, "rgb(255,0,0)"],
+                [0, "rgb(150,150,150)"],
+                [0.33, "rgb(200,200,50)"],
+                [0.67, "rgb(200,100,50)"],
+                [1, "rgb(200,50,50)"],
             ],
             coloraxis_colorbar_tick0=0,
             coloraxis_colorbar_dtick=1,
