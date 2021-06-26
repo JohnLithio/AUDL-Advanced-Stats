@@ -575,6 +575,17 @@ class Game:
         return df
 
     def get_events_throw_classifications(self, df):
+        # TODO: Try clustering analysis for these
+        df["centering_pass"] = (
+            (df["t_after"].isin([20]))  # Completed pass
+            & (df["t"].shift(1).isin([1]))  # Previous event was the start of an o-point
+            & ~((df["x"] == 0) & (df["y"] == 20))  # Not starting from the brick mark
+            & (
+                df["x_after"].abs() <= df["x"].abs()
+            )  # Disc is moved closer to center of the field
+            & (df["y_after"] > df["y"])  # Disc is moved forward
+        )
+
         # See throw classification diagram
         df["throw_type"] = None
 
@@ -853,9 +864,9 @@ class Game:
         name_order = times_cluster.groupby(["name"]).head(1)["name"].values
         point_hold_order = [
             "Hold",
-            "Break",
-            "Opponent Hold",
             "Opponent Break",
+            "Opponent Hold",
+            "Break",
             "End of Quarter",
         ]
 
@@ -938,11 +949,14 @@ class Game:
         # On hover, show start and end time of possession, total time, outcome, possession numbers, player stats?
         #     player stats could be completions, receptions, yards, Ds, whether they scored
         # TODO: option to mark timeouts and injuries
+        # TODO: Clean up hover text
+        # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
         return fig
 
     def get_player_stats(self):
+        # TODO: Identify and remove yardage from centering passes
         # team
         # Number
         # Points played
@@ -1001,10 +1015,11 @@ class Game:
 
         # Do not count as 2 changes of possession if block, throwaway, score
         #   occurred with 0 seconds left (1Q DC at NY)
-        # What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score. TODO
-        # What is the c attribute?  True or False. Present for opponent foul. Might be True when the disc gets centered. Present for week 1 MAD vs MIN TODO
-        # What is the o attribute?  True or False. Possibly true/false for OT. Present for end of 4th quarter. Present for week 1 MAD vs MIN TODO
-        # What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN TODO
+        # TODO What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score. TODO
+        # TODO What is the c attribute?  True or False. Present for opponent foul. Might be True when the disc gets centered. Present for week 1 MAD vs MIN TODO
+        # TODO What is the o attribute?  True or False. Possibly true/false for OT. Present for end of 4th quarter. Present for week 1 MAD vs MIN TODO
+        # TODO What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN
+        # TODO What is the h attribute? 1 on some scores and 1 block in TB-BOS.
 
         # MATCHING UP POSSESSIONS
         # Run into issues at the end of quarters
