@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from json import loads
 from os.path import basename, join
 from pathlib import Path
+from re import search
 from .constants import *
 from .game import Game
 from .utils import get_database_path, get_json_path, create_connection
@@ -39,7 +40,7 @@ class Season:
         self.schedule_url = SCHEDULE_URL
         self.stats_url = STATS_URL
         self.weeks_urls = None
-        self.game_urls = None
+        self.games = None
 
     def get_weeks_urls(self):
         """Get URLs for the schedule of each week of the season."""
@@ -59,24 +60,25 @@ class Season:
 
         return self.weeks_urls
 
-    def get_game_urls(self, override=False):
-        """Get URLs for the advanced stats page of every game in the season."""
-        if self.game_urls is None:
-            # Check if URLs already exist in DB
-            games = []
+    def get_games(self, override=False):
+        """Get teams, date, and url for the advanced stats page of every game in the season."""
+        if self.games is None:
+            # Check if games already exist in DB
+            retrieved_games = False
             try:
                 query = """
-                select distinct url
-                from game_urls
+                select *
+                from games
                 """
                 conn = create_connection(self.database_path)
-                games = pd.read_sql(sql=query, con=conn)["url"].unique().tolist()
+                df = pd.read_sql(sql=query, con=conn)
                 conn.close()
+                retrieved_games = True
             except:
                 conn.close()
 
-            # Retrieve URLs from website if they are not in DB or override is True
-            if len(games) == 0 or override:
+            # Retrieve games from website if they are not in DB or override is True
+            if not retrieved_games or override:
                 # Get all games in all weeks
                 games = []
                 for week_url in self.get_weeks_urls():
@@ -93,20 +95,34 @@ class Season:
                         )
                         games.append(game_url)
 
-                    self.save_game_urls(url_list=sorted(games))
+                    # Parse URLs to get game info
+                    game_list = [
+                        [
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
+                            x,
+                        ]
+                        for x in sorted(games)
+                    ]
 
-            self.game_urls = sorted(games)
+                    # Save info to database table
+                    df = (
+                        pd.DataFrame(
+                            data=game_list,
+                            columns=["game_date", "away_team", "home_team", "url"],
+                        )
+                        .drop_duplicates()
+                        .reset_index(drop=True)
+                    )
+                    conn = create_connection(self.database_path)
+                    df.to_sql("games", con=conn, if_exists="replace", index=False)
+                    conn.commit()
+                    conn.close()
 
-        return self.game_urls
+            self.games = df
 
-    def save_game_urls(self, url_list):
-        """Save all game urls into a database."""
-        df = pd.DataFrame(data=[[x] for x in url_list], columns=["url"],)
-
-        conn = create_connection(self.database_path)
-        df.to_sql("game_urls", con=conn, if_exists="replace", index=False)
-        conn.commit()
-        conn.close()
+        return self.games
 
 
 # Create database with league info
