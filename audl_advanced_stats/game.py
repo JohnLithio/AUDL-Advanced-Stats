@@ -608,10 +608,10 @@ class Game:
             df["throw_type"],
         )
 
-        # Dishy
+        # Dish
         df["throw_type"] = np.where(
             (df["t_after"].isin([8, 19, 20, 22])) & (df["yards_raw"] < 12),
-            "Dishy",
+            "Dish",
             df["throw_type"],
         )
 
@@ -869,6 +869,15 @@ class Game:
             "Break",
             "End of Quarter",
         ]
+        point_outcome_order = [
+            "Score",
+            "Opponent Score",
+            "End of Period",
+        ]
+        o_point_order = [
+            "O-Point",
+            "D-Point",
+        ]
 
         # Create the figure
         fig = px.timeline(
@@ -877,7 +886,12 @@ class Game:
             x_end="s_after_total",
             y="name",
             color=color,
-            category_orders={"name": name_order, "point_hold": point_hold_order},
+            category_orders={
+                "name": name_order,
+                "point_hold": point_hold_order,
+                "point_outcome": point_outcome_order,
+                "o_point": o_point_order,
+            },
         )
         fig.layout.xaxis.type = "linear"
 
