@@ -909,12 +909,55 @@ class Game:
         if times_cluster["s_after_total"].max() > 4 * 12 * 60:
             xticks[60 * 12 * 4 + 60 * 5 * 1] = "End of OT1"
 
+        # Create second x-axis that is only for timeouts and injuries
+        x2ticks = dict()
+
+        # Mark timeouts
+        for i, row in events.query("t==[14, 15]").iterrows():
+            x2ticks[row["s_total"]] = "Timeout"
+
+        # Mark injuries
+        for i, row in events.query("t==[42, 43]").iterrows():
+            x2ticks[row["s_total"]] = "Injury"
+
+        # Add vertical lines to mark quarters
+        for xval, label in xticks.items():
+            line_dash = "solid"
+            line_color = "white"
+            line_width = 2
+            fig.add_vline(
+                x=xval,
+                line_width=line_width,
+                line_color=line_color,
+                line_dash=line_dash,
+                layer="above",
+            )
+
+        # Add vertical lines to mark timeouts and injuries
+        for xval, label in x2ticks.items():
+            line_dash = "dash"
+            line_color = "white"
+            line_width = 2
+            fig.add_vline(
+                x=xval,
+                line_width=line_width,
+                line_color=line_color,
+                line_dash=line_dash,
+                layer="above",
+            )
+
+        # Get x-axis range
+        xrange = [0, events["s_total"].max()]
+
         fig.update_layout(
             # Add tick labels to fig
             xaxis=dict(
+                range=xrange,
                 tickmode="array",
                 tickvals=list(xticks.keys()),
                 ticktext=list(xticks.values()),
+                ticks="",
+                showgrid=False,
             ),
             # Remove y axis title
             yaxis=dict(title=None,),
@@ -954,7 +997,7 @@ class Game:
                 y1=row["max"] + 0.5,
                 line=dict(width=0),
                 fillcolor=px.colors.qualitative.Set2[i],
-                opacity=0.2,
+                opacity=0.25,
                 layer="below",
             )
 
@@ -963,7 +1006,6 @@ class Game:
         # Align another graph on the x-axis that shows that scoring progression?
         # On hover, show start and end time of possession, total time, outcome, possession numbers, player stats?
         #     player stats could be completions, receptions, yards, Ds, whether they scored
-        # TODO: option to mark timeouts and injuries
         # TODO: Clean up hover text
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
