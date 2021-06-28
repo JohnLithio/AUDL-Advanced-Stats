@@ -700,6 +700,7 @@ class Game:
         psegs = (
             times.merge(segments, how="left", on=["s_before_total", "s_after_total"])
             .sort_values("segment")[["playerid", "segment"]]
+            .drop_duplicates()
             .assign(exists=1)
             .set_index(["playerid", "segment"])
             .unstack(level="segment", fill_value=0)
