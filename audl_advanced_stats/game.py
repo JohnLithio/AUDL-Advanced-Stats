@@ -328,6 +328,16 @@ class Game:
                 possession_outcome=lambda x: x["possession_outcome"].fillna(
                     method="bfill"
                 ),
+                point_number=lambda x: np.where(
+                    x["t"].isin([23, 24, 25, 26, 27]),
+                    x["point_number"].shift(1),
+                    x["point_number"],
+                ),
+                possession_number=lambda x: np.where(
+                    x["t"].isin([23, 24, 25, 26, 27]),
+                    x["possession_number"].shift(1),
+                    x["possession_number"],
+                ),
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
@@ -685,6 +695,17 @@ class Game:
             self.away_events = self.get_events(home=False, qc=qc)
         return self.away_events
 
+    def total_time_to_readable(self, time):
+        """Convert total seconds from start of game to min:sec left in quarter."""
+        total_left_quarter = 720 - time % 720
+        minutes = np.floor(total_left_quarter / 60)
+        seconds = total_left_quarter % 60
+        return (
+            minutes.astype(int).astype(str)
+            + ":"
+            + seconds.astype(int).astype(str).str.zfill(2)
+        )
+
     def team_player_clusters(self, times, qc=True):
         """Separate team into 3 clusters (O, D1, D2) based on points played together."""
         # Get all unique segments in the game and label them from 0 to n
@@ -759,7 +780,20 @@ class Game:
                 ],
                 ascending=[False, True, False, True, True],
             )
-            .assign(o_point=lambda x: np.where(x["o_point"], "O-Point", "D-Point"),)
+            .assign(
+                o_point=lambda x: np.where(x["o_point"], "O-Point", "D-Point"),
+                s_before_readable=lambda x: self.total_time_to_readable(
+                    x["s_before_total"]
+                ),
+                s_after_readable=lambda x: self.total_time_to_readable(
+                    x["s_after_total"]
+                ),
+            )
+            .assign(
+                s_after_readable=lambda x: x["s_after_readable"]
+                .map({"12:00": "0:00"})
+                .fillna(x["s_after_readable"])
+            )
             .reset_index(drop=True)
         )
 
@@ -815,6 +849,8 @@ class Game:
             "s_before_total",
             "s_after_total",
             "elapsed",
+            # "s_before_readable",
+            # "s_after_readable",
         ]
 
         # Get the points that each player was on the field and stack them so
@@ -880,21 +916,17 @@ class Game:
             "D-Point",
         ]
 
-        # Create the figure
-        fig = px.timeline(
-            times_cluster,
-            x_start="s_before_total",
-            x_end="s_after_total",
-            y="name",
-            color=color,
-            category_orders={
-                "name": name_order,
-                "point_hold": point_hold_order,
-                "point_outcome": point_outcome_order,
-                "o_point": o_point_order,
-            },
+        # Text to show on hover
+        hovertext = "<br>".join(
+            [
+                "%{customdata[0]}",
+                "Segment Start: %{customdata[1]}%{customdata[6]}",
+                "Segment End: %{customdata[2]}%{customdata[7]}",
+                "Initial Possession: %{customdata[3]}",
+                "Outcome: %{customdata[4]}",
+                "Total Turns During Point: %{customdata[5]}",
+            ]
         )
-        fig.layout.xaxis.type = "linear"
 
         # Set the labels for the x-axis tick marks
         xticks = {
@@ -919,6 +951,70 @@ class Game:
         # Mark injuries
         for i, row in events.query("t==[42, 43]").iterrows():
             x2ticks[row["s_total"]] = "Injury"
+
+        # Add note about timeouts at the start of the segment
+        times_cluster["before_event"] = np.where(
+            times_cluster["s_before_total"].isin(
+                events.query("t==[14, 15]")["s_total"].unique()
+            ),
+            " (Timeout)",
+            "",
+        )
+
+        # Add note about injuries at the start of the segment
+        times_cluster["before_event"] = np.where(
+            times_cluster["s_before_total"].isin(
+                events.query("t==[42, 43]")["s_total"].unique()
+            ),
+            " (Injury)",
+            times_cluster["before_event"],
+        )
+
+        # Add note about timeouts at the end of the segment
+        times_cluster["after_event"] = np.where(
+            times_cluster["s_after_total"].isin(
+                events.query("t==[14, 15]")["s_total"].unique()
+            ),
+            " (Timeout)",
+            "",
+        )
+
+        # Add note about injuries at the end of the segment
+        times_cluster["after_event"] = np.where(
+            times_cluster["s_after_total"].isin(
+                events.query("t==[42, 43]")["s_total"].unique()
+            ),
+            " (Injury)",
+            times_cluster["after_event"],
+        )
+
+        # Create the figure
+        fig = px.timeline(
+            times_cluster,
+            x_start="s_before_total",
+            x_end="s_after_total",
+            y="name",
+            color=color,
+            category_orders={
+                "name": name_order,
+                "point_hold": point_hold_order,
+                "point_outcome": point_outcome_order,
+                "o_point": o_point_order,
+            },
+            custom_data=[
+                "name",
+                "s_before_readable",
+                "s_after_readable",
+                "o_point",
+                "point_hold",
+                "num_turnovers",
+                "before_event",
+                "after_event",
+            ],
+        )
+        fig.layout.xaxis.type = "linear"
+
+        fig.update_traces(hovertemplate=hovertext)
 
         # Add vertical lines to mark quarters
         for xval, label in xticks.items():
@@ -1006,13 +1102,12 @@ class Game:
         # Align another graph on the x-axis that shows that scoring progression?
         # On hover, show start and end time of possession, total time, outcome, possession numbers, player stats?
         #     player stats could be completions, receptions, yards, Ds, whether they scored
-        # TODO: Clean up hover text
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
         return fig
 
-    def get_player_stats(self):
+    def get_player_stats_by_game(self):
         # TODO: Identify and remove yardage from centering passes
         # team
         # Number
@@ -1049,7 +1144,10 @@ class Game:
         # Time played
         pass
 
-    def get_team_stats(self):
+    def get_player_stats_by_season(self):
+        pass
+
+    def get_team_stats_by_game(self):
         # Completions
         # Hucks
         # Holds
@@ -1070,26 +1168,32 @@ class Game:
         # Total Yds Thr (and per throw)
         pass
 
-        # Do not count as 2 changes of possession if block, throwaway, score
-        #   occurred with 0 seconds left (1Q DC at NY)
-        # TODO What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score. TODO
-        # TODO What is the c attribute?  True or False. Present for opponent foul. Might be True when the disc gets centered. Present for week 1 MAD vs MIN TODO
-        # TODO What is the o attribute?  True or False. Possibly true/false for OT. Present for end of 4th quarter. Present for week 1 MAD vs MIN TODO
-        # TODO What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN
-        # TODO What is the h attribute? 1 on some scores and 1 block in TB-BOS.
+    def get_team_stats_by_season(self):
+        pass
 
-        # MATCHING UP POSSESSIONS
-        # Run into issues at the end of quarters
-        #     If a drop occurs, then the other team completes a pass but
-        #     does not turn or score it (2Q IND at DET)
-        #     But if there's a heave, one team might get credit
-        #     for a block while the other team does not get a throwaway
-        # Events with x/y: completion, throwaway, score, OB/IB pull (defense), drop
-        #     Set xend/yend, then adjust xstart/ystart for penalties/travels
-        # Each row should be event:
-        #     completion, throwaway, travel, penalty, stall, score, timeout, end of quarter, pull, injury, etc.
-        # and who to attribute it to on that team:
-        #     thrower, receiver, fouler/traveler, puller
-        # and how many x/y/total yards it accounted for
-        # and who was on the field
-        # and the most recent time and closest following time
+    # Do not count as 2 changes of possession if block, throwaway, score
+    #   occurred with 0 seconds left (1Q DC at NY)
+    # TODO What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score. TODO
+    # TODO What is the c attribute?  True or False. Present for opponent foul. Might be True when the disc gets centered. Present for week 1 MAD vs MIN TODO
+    # TODO What is the o attribute?  True or False. Possibly true/false for OT. Present for end of 4th quarter. Present for week 1 MAD vs MIN TODO
+    # TODO What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN
+    # TODO What is the h attribute? 1 on some scores and 1 block in TB-BOS.
+    # TODO Align docstrings with some auto documentation
+    # TODO Separate viz methods into their own module/class
+    # TODO Figure out a way to cache figures so that small changes do not require re-running the entire thing
+
+    # MATCHING UP POSSESSIONS
+    # Run into issues at the end of quarters
+    #     If a drop occurs, then the other team completes a pass but
+    #     does not turn or score it (2Q IND at DET)
+    #     But if there's a heave, one team might get credit
+    #     for a block while the other team does not get a throwaway
+    # Events with x/y: completion, throwaway, score, OB/IB pull (defense), drop
+    #     Set xend/yend, then adjust xstart/ystart for penalties/travels
+    # Each row should be event:
+    #     completion, throwaway, travel, penalty, stall, score, timeout, end of quarter, pull, injury, etc.
+    # and who to attribute it to on that team:
+    #     thrower, receiver, fouler/traveler, puller
+    # and how many x/y/total yards it accounted for
+    # and who was on the field
+    # and the most recent time and closest following time
