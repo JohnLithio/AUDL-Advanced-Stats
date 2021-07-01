@@ -1110,6 +1110,8 @@ class Game:
 
     def visual_possession_map(self, possession_number, home=True):
         """Map of all throws in a possession by 1 team."""
+        # TODO: Hovertext
+        # TODO: Play-by-play EX: Score - Katz to Babbit 23 yards
         # Get data based on home/away team selection
         if home:
             events = self.get_home_events(qc=False)
@@ -1131,6 +1133,7 @@ class Game:
 
         # Re-label first event
         df.loc[df["event"] == 1, "event_name"] = "Start of Possession"
+        df.loc[df["event"] == 1, "t"] = 0
 
         last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
         # df.loc[df["event"] == df["event"].max(), "event_name"] = last_row[
@@ -1143,6 +1146,7 @@ class Game:
                 {
                     "x": last_row["x_after"],
                     "y": last_row["y_after"],
+                    "t": last_row["t_after"],
                     "event_name": last_row["event_name_after"],
                     "event": last_row["event"] + 1,
                     "r": last_row["r_after"],
@@ -1151,15 +1155,42 @@ class Game:
             ignore_index=True,
         )
 
+        # Add colors
+        event_colors = {
+            10: "orange",
+            13: "orange",
+            20: "gray",
+            22: "green",
+            19: "red",
+            8: "red",
+            0: "purple",
+        }
+        df["event_color"] = df["t"].map(event_colors)
+
         # Create scatter plot of throw end-points
         fig = px.scatter(
             data_frame=df,
             x="x",
             y="y",
-            color="event_name",
-            symbol="event_name",
-            # animation_frame="event",
+            color_discrete_sequence=["gray"],
+            symbol_sequence=["circle"],
+            animation_frame="event",
+            size=[1 for x in range(df.shape[0])],
+            size_max=10,
+            width=400,
         )
+        for event_name in df.sort_values("event")["event_name"].unique():
+            group = df.query(f"event_name=='{event_name}'")
+            fig.add_scatter(
+                x=group["x"],
+                y=group["y"],
+                marker_color=group["event_color"],
+                marker_symbol="diamond",
+                mode="markers",
+                name=group["event_name"].iloc[0]
+                # symbol=df["event_name"],
+                # animation_frame=df["event"],
+            )
 
         # Draw field boundaries
         # Horizontal lines
@@ -1180,6 +1211,22 @@ class Game:
         )
         fig.add_shape(type="line", x0=25, x1=25, y0=0, y1=120, line=dict(color="black"))
 
+        # Add arrow to indicate attacking direction
+        fig.add_annotation(
+            xref="x",
+            yref="y",
+            x=40,
+            y=80,
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            axref="x",
+            ayref="y",
+            ax=40,
+            ay=60,
+            text="Attacking",
+        )
+
         # Add a line for each of the throws
         for i, row in df.iterrows():
             if (row["x"] == row["x"]) and (row["x_after"] == row["x_after"]):
@@ -1189,7 +1236,8 @@ class Game:
                     y0=row["y"],
                     x1=row["x_after"],
                     y1=row["y_after"],
-                    line=dict(color="black"),
+                    line=dict(color=event_colors[row["t_after"]]),
+                    layer="below",
                 )
 
         # Set figure properties
@@ -1199,20 +1247,45 @@ class Game:
             yaxis_title=None,
             # Add tick labels to fig
             xaxis=dict(
-                range=[-30, 30], showticklabels=False, ticks="", showgrid=False,
-            ),
-            # Add tick labels to fig
-            yaxis=dict(
-                range=[-10, 130],
+                range=[-27, 40],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
+                zeroline=False,
+            ),
+            # Add tick labels to fig
+            yaxis=dict(
+                range=[-1, 121],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
                 scaleanchor="x",
                 scaleratio=1,
             ),
+            # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            showlegend=False,
         )
+
+        # Change slider labels
+        for i, step in enumerate(fig.layout["sliders"][0]["steps"]):
+            fig.layout["sliders"][0]["steps"][i]["label"] = df.loc[
+                df["event"] == i + 1, "event_name"
+            ].iloc[0]
+
+        # Remove slider prefix
+        fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
+
+        # Adjust slider position
+        fig.layout["sliders"][0]["pad"] = {
+            "b": 5,
+            "t": 29,
+        }
+        fig.layout["sliders"][0]["y"] = 0.1
 
         return fig
 
