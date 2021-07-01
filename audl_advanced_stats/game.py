@@ -925,6 +925,7 @@ class Game:
                 "Initial Possession: %{customdata[3]}",
                 "Outcome: %{customdata[4]}",
                 "Total Turns During Point: %{customdata[5]}",
+                "<extra></extra>",
             ]
         )
 
@@ -1105,6 +1106,114 @@ class Game:
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
+        return fig
+
+    def visual_possession_map(self, possession_number, home=True):
+        """Map of all throws in a possession by 1 team."""
+        # Get data based on home/away team selection
+        if home:
+            events = self.get_home_events(qc=False)
+            roster = self.get_home_roster()
+        else:
+            events = self.get_away_events(qc=False)
+            roster = self.get_away_roster()
+
+        # Only keep some events
+        df = (
+            events.query("t==[10, 13, 20]")
+            .query(f"possession_number=={possession_number}")
+            .reset_index(drop=True)
+            .reset_index()
+            .assign(event=lambda x: x["index"] + 1)
+            .drop(columns=["index"])
+            .copy()
+        )
+
+        # Re-label first event
+        df.loc[df["event"] == 1, "event_name"] = "Start of Possession"
+
+        last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
+        # df.loc[df["event"] == df["event"].max(), "event_name"] = last_row[
+        #     "event_name_after"
+        # ]
+
+        # Add row for last event
+        df = df.append(
+            pd.Series(
+                {
+                    "x": last_row["x_after"],
+                    "y": last_row["y_after"],
+                    "event_name": last_row["event_name_after"],
+                    "event": last_row["event"] + 1,
+                    "r": last_row["r_after"],
+                }
+            ),
+            ignore_index=True,
+        )
+
+        # Create scatter plot of throw end-points
+        fig = px.scatter(
+            data_frame=df,
+            x="x",
+            y="y",
+            color="event_name",
+            symbol="event_name",
+            # animation_frame="event",
+        )
+
+        # Draw field boundaries
+        # Horizontal lines
+        fig.add_shape(type="line", x0=-25, x1=25, y0=0, y1=0, line=dict(color="black"))
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=20, y1=20, line=dict(color="black")
+        )
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=100, y1=100, line=dict(color="black")
+        )
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=120, y1=120, line=dict(color="black")
+        )
+
+        # Vertical lines
+        fig.add_shape(
+            type="line", x0=-25, x1=-25, y0=0, y1=120, line=dict(color="black")
+        )
+        fig.add_shape(type="line", x0=25, x1=25, y0=0, y1=120, line=dict(color="black"))
+
+        # Add a line for each of the throws
+        for i, row in df.iterrows():
+            if (row["x"] == row["x"]) and (row["x_after"] == row["x_after"]):
+                fig.add_shape(
+                    type="line",
+                    x0=row["x"],
+                    y0=row["y"],
+                    x1=row["x_after"],
+                    y1=row["y_after"],
+                    line=dict(color="black"),
+                )
+
+        # Set figure properties
+        fig.update_layout(
+            # Remove axis titles
+            xaxis_title=None,
+            yaxis_title=None,
+            # Add tick labels to fig
+            xaxis=dict(
+                range=[-30, 30], showticklabels=False, ticks="", showgrid=False,
+            ),
+            # Add tick labels to fig
+            yaxis=dict(
+                range=[-10, 130],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                scaleanchor="x",
+                scaleratio=1,
+            ),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+
         return fig
 
     def get_player_stats_by_game(self):
