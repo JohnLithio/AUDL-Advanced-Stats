@@ -642,6 +642,40 @@ class Game:
 
         return df
 
+    def play_description(self, df, home=True):
+        """Create a description of the play."""
+        # TODO: Finish this
+        if home:
+            roster = self.get_home_roster()
+        else:
+            roster = self.get_away_roster()
+
+        # Convert player IDs to names
+        player_names = (
+            roster.assign(
+                name=lambda x: x["first_name"].str.strip()
+                + " "
+                + x["last_name"].str.strip(),
+            )[["id", "name"]]
+            .set_index("id")
+            .to_dict()["name"]
+        )
+
+        df["play_description"] = np.where(
+            df["t"].isin([20, 22]),
+            "Completion: "
+            + df["r"].map(player_names)
+            + " "
+            + df["throw_type"]
+            + " to "
+            + df["r_after"].map(player_names)
+            + " for "
+            + df["yyards"].round(0).fillna(0).astype(int).astype(str)
+            + " yards",
+            "",
+        )
+        return df
+
     def events_print_qc(self, df, qc=True):
         """Print basic QC info about the processed events data."""
         if qc:
@@ -678,6 +712,7 @@ class Game:
             .pipe(self.get_events_times)
             .pipe(self.get_events_lineups)
             .pipe(self.get_events_throw_classifications)
+            .pipe(self.play_description, home=home)
             .pipe(self.events_print_qc, qc=qc)
         )
 
@@ -1167,7 +1202,7 @@ class Game:
         }
         df["event_color"] = df["t"].map(event_colors)
 
-        # Create scatter plot of throw end-points
+        # Create animated scatter plot to represent the disc
         fig = px.scatter(
             data_frame=df,
             x="x",
@@ -1179,6 +1214,13 @@ class Game:
             size_max=10,
             width=400,
         )
+
+        # Remove hover info for the disc
+        fig.update_traces(
+            selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
+        )
+
+        # Plot each type of event as a different color
         for event_name in df.sort_values("event")["event_name"].unique():
             group = df.query(f"event_name=='{event_name}'")
             fig.add_scatter(
@@ -1286,6 +1328,10 @@ class Game:
             "t": 29,
         }
         fig.layout["sliders"][0]["y"] = 0.1
+
+        # Remove hover info for the disc
+        for i, _ in enumerate(fig.frames):
+            fig.frames[i]["data"][0]["hovertemplate"] = None
 
         return fig
 
