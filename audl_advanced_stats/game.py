@@ -1162,8 +1162,15 @@ class Game:
             ),
             # Remove y axis title
             yaxis=dict(title=None,),
-            # Remove legend title
-            legend_title=None,
+            # Remove legend title and change to horizontal legend on top
+            legend=dict(
+                title=None,
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+            ),
             # Set title and colors for turnovers
             coloraxis_colorbar_title="Turns During Point",
             coloraxis_colorscale=[
@@ -1210,6 +1217,7 @@ class Game:
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
+        # TODO: Move legend to top
         return fig
 
     def visual_possession_map(self, possession_number, home=True):
