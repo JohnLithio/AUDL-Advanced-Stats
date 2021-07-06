@@ -604,7 +604,7 @@ class Game:
             (df["t_after"].isin([8, 19, 20, 22]))
             & (df["yyards_raw"] >= 5)
             & (df["yyards_raw"] < 45),
-            "Under/Other",
+            "Throw",
             df["throw_type"],
         )
 
@@ -644,7 +644,6 @@ class Game:
 
     def play_description(self, df, home=True):
         """Create a description of the play."""
-        # TODO: Finish this
         if home:
             roster = self.get_home_roster()
         else:
@@ -661,19 +660,89 @@ class Game:
             .to_dict()["name"]
         )
 
+        # Normal completion
         df["play_description"] = np.where(
-            df["t"].isin([20, 22]),
+            df["t_after"].isin([20,]),
             "Completion: "
             + df["r"].map(player_names)
             + " "
             + df["throw_type"]
-            + " to "
+            + " to<br>"
             + df["r_after"].map(player_names)
             + " for "
             + df["yyards"].round(0).fillna(0).astype(int).astype(str)
             + " yards",
             "",
         )
+
+        # Score
+        df["play_description"] = np.where(
+            df["t_after"].isin([22,]),
+            "Score: "
+            + df["r"].map(player_names)
+            + " "
+            + df["throw_type"]
+            + " to<br>"
+            + df["r_after"].map(player_names)
+            + " for "
+            + df["yyards"].round(0).fillna(0).astype(int).astype(str)
+            + " yards",
+            df["play_description"],
+        )
+
+        # Drop
+        df["play_description"] = np.where(
+            df["t_after"].isin([19,]),
+            "Turnover: "
+            + df["r"].map(player_names)
+            + " "
+            + df["throw_type"]
+            + " for "
+            + df["yyards"].round(0).fillna(0).astype(int).astype(str)
+            + " yards<br>dropped by "
+            + df["r_after"].map(player_names),
+            df["play_description"],
+        )
+
+        # Throwaway
+        df["play_description"] = np.where(
+            df["t_after"].isin([8,]),
+            "Turnover: "
+            + df["r"].map(player_names)
+            + " "
+            + df["throw_type"]
+            + " for<br>"
+            + df["yyards"].round(0).fillna(0).astype(int).astype(str)
+            + " yards thrown away",
+            df["play_description"],
+        )
+
+        # Stall
+        df["play_description"] = np.where(
+            df["t_after"].isin([17,]),
+            "Turnover: " + df["r"].map(player_names) + " stall",
+            df["play_description"],
+        )
+
+        # Travel
+        df["play_description"] = np.where(
+            df["t_after"].isin([10,]),
+            "Travel: " + df["r"].map(player_names),
+            df["play_description"],
+        )
+
+        # Offensive Foul
+        df["play_description"] = np.where(
+            df["t_after"].isin([13,]),
+            "Offensive Foul: " + df["r"].map(player_names),
+            df["play_description"],
+        )
+
+        # Defensive Foul
+        df["play_description"] = np.where(
+            df["t_after"].isin([12,]), "Defensive Foul", df["play_description"],
+        )
+
         return df
 
     def events_print_qc(self, df, qc=True):
@@ -1145,8 +1214,6 @@ class Game:
 
     def visual_possession_map(self, possession_number, home=True):
         """Map of all throws in a possession by 1 team."""
-        # TODO: Hovertext
-        # TODO: Play-by-play EX: Score - Katz to Babbit 23 yards
         # Get data based on home/away team selection
         if home:
             events = self.get_home_events(qc=False)
@@ -1182,6 +1249,10 @@ class Game:
                     "x": last_row["x_after"],
                     "y": last_row["y_after"],
                     "t": last_row["t_after"],
+                    "yyards_raw": last_row["yyards_raw"],
+                    "xyards_raw": last_row["xyards_raw"],
+                    "yards_raw": last_row["yards_raw"],
+                    "play_description": last_row["play_description"],
                     "event_name": last_row["event_name_after"],
                     "event": last_row["event"] + 1,
                     "r": last_row["r_after"],
@@ -1189,6 +1260,18 @@ class Game:
             ),
             ignore_index=True,
         )
+
+        # Shift play descriptions and yardages
+        df["play_description"] = df["play_description"].shift(1)
+        df["yyards_raw"] = df["yyards_raw"].shift(1)
+        df["xyards_raw"] = df["xyards_raw"].shift(1)
+        df["yards_raw"] = df["yards_raw"].shift(1)
+
+        # Re-label first play description and yardages
+        df.loc[df["event"] == 1, "play_description"] = "Start of Possession"
+        df.loc[df["event"] == 1, "yyards_raw"] = 0
+        df.loc[df["event"] == 1, "xyards_raw"] = 0
+        df.loc[df["event"] == 1, "yards_raw"] = 0
 
         # Add colors
         event_colors = {
@@ -1229,9 +1312,19 @@ class Game:
                 marker_color=group["event_color"],
                 marker_symbol="diamond",
                 mode="markers",
-                name=group["event_name"].iloc[0]
-                # symbol=df["event_name"],
-                # animation_frame=df["event"],
+                name=group["event_name"].iloc[0],
+                hovertemplate="%{text}<extra></extra>",
+                text=[
+                    "<br>".join(
+                        [
+                            f"<b>{row['play_description']}</b>",
+                            f"Vertical Yards: {row['yyards_raw']:.1f}",
+                            f"Horizontal Yards: {row['xyards_raw']:.1f}",
+                            f"Total Yards: {row['yards_raw']:.1f}",
+                        ]
+                    )
+                    for i, row in group.iterrows()
+                ],
             )
 
         # Draw field boundaries
@@ -1316,7 +1409,7 @@ class Game:
         # Change slider labels
         for i, step in enumerate(fig.layout["sliders"][0]["steps"]):
             fig.layout["sliders"][0]["steps"][i]["label"] = df.loc[
-                df["event"] == i + 1, "event_name"
+                df["event"] == i + 1, "play_description"
             ].iloc[0]
 
         # Remove slider prefix
@@ -1328,6 +1421,10 @@ class Game:
             "t": 29,
         }
         fig.layout["sliders"][0]["y"] = 0.1
+
+        # Adjust play and stop button position
+        fig.layout["updatemenus"][0]["x"] = 0.1
+        fig.layout["updatemenus"][0]["y"] = 0.12
 
         # Remove hover info for the disc
         for i, _ in enumerate(fig.frames):
