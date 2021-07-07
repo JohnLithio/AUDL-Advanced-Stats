@@ -1183,6 +1183,8 @@ class Game:
             coloraxis_colorbar_dtick=1,
             # Change font
             font_family="TW Cen MT",
+            # Remove margins
+            margin=dict(t=60, b=0, l=0, r=0,),
         )
 
         # Set the ranges for shading the chart by cluster
@@ -1217,7 +1219,7 @@ class Game:
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
-        # TODO: Move legend to top
+        # TODO: Fix padding/spacing around graphs in app
         return fig
 
     def visual_possession_map(self, possession_number, home=True):
@@ -1358,14 +1360,14 @@ class Game:
         fig.add_annotation(
             xref="x",
             yref="y",
-            x=40,
+            x=35,
             y=80,
             showarrow=True,
             arrowhead=2,
             arrowsize=1.5,
             axref="x",
             ayref="y",
-            ax=40,
+            ax=35,
             ay=60,
             text="Attacking",
         )
@@ -1412,6 +1414,8 @@ class Game:
             # Change font
             font_family="TW Cen MT",
             showlegend=False,
+            # Remove margins
+            margin=dict(t=25, b=0, l=0, r=0,),
         )
 
         # Change slider labels
@@ -1426,7 +1430,7 @@ class Game:
         # Adjust slider position
         fig.layout["sliders"][0]["pad"] = {
             "b": 5,
-            "t": 29,
+            "t": 33,
         }
         fig.layout["sliders"][0]["y"] = 0.1
 
