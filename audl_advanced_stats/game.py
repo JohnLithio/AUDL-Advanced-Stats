@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import requests
 from ast import literal_eval
 from bs4 import BeautifulSoup
@@ -1475,95 +1476,123 @@ class Game:
         df.loc[df["event"] == 1, "event_name"] = "Start of Possession"
         df.loc[df["event"] == 1, "t"] = 0
 
-        last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
-        # df.loc[df["event"] == df["event"].max(), "event_name"] = last_row[
-        #     "event_name_after"
-        # ]
+        # Draw possession if there's data, otherwise draw a blank field
+        try:
+            last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
 
-        # Add row for last event
-        df = df.append(
-            pd.Series(
-                {
-                    "x": last_row["x_after"],
-                    "y": last_row["y_after"],
-                    "t": last_row["t_after"],
-                    "yyards_raw": last_row["yyards_raw"],
-                    "xyards_raw": last_row["xyards_raw"],
-                    "yards_raw": last_row["yards_raw"],
-                    "play_description": last_row["play_description"],
-                    "event_name": last_row["event_name_after"],
-                    "event": last_row["event"] + 1,
-                    "r": last_row["r_after"],
-                }
-            ),
-            ignore_index=True,
-        )
+            # Add row for last event
+            df = df.append(
+                pd.Series(
+                    {
+                        "x": last_row["x_after"],
+                        "y": last_row["y_after"],
+                        "t": last_row["t_after"],
+                        "yyards_raw": last_row["yyards_raw"],
+                        "xyards_raw": last_row["xyards_raw"],
+                        "yards_raw": last_row["yards_raw"],
+                        "play_description": last_row["play_description"],
+                        "event_name": last_row["event_name_after"],
+                        "event": last_row["event"] + 1,
+                        "r": last_row["r_after"],
+                    }
+                ),
+                ignore_index=True,
+            )
 
-        # Shift play descriptions and yardages
-        df["play_description"] = df["play_description"].shift(1)
-        df["yyards_raw"] = df["yyards_raw"].shift(1)
-        df["xyards_raw"] = df["xyards_raw"].shift(1)
-        df["yards_raw"] = df["yards_raw"].shift(1)
+            # Shift play descriptions and yardages
+            df["play_description"] = df["play_description"].shift(1)
+            df["yyards_raw"] = df["yyards_raw"].shift(1)
+            df["xyards_raw"] = df["xyards_raw"].shift(1)
+            df["yards_raw"] = df["yards_raw"].shift(1)
 
-        # Re-label first play description and yardages
-        df.loc[df["event"] == 1, "play_description"] = "Start of Possession"
-        df.loc[df["event"] == 1, "yyards_raw"] = 0
-        df.loc[df["event"] == 1, "xyards_raw"] = 0
-        df.loc[df["event"] == 1, "yards_raw"] = 0
+            # Re-label first play description and yardages
+            df.loc[df["event"] == 1, "play_description"] = "Start of Possession"
+            df.loc[df["event"] == 1, "yyards_raw"] = 0
+            df.loc[df["event"] == 1, "xyards_raw"] = 0
+            df.loc[df["event"] == 1, "yards_raw"] = 0
 
-        # Add colors
-        event_colors = {
-            10: "orange",
-            13: "orange",
-            20: "gray",
-            22: "green",
-            19: "red",
-            8: "red",
-            0: "purple",
-        }
-        df["event_color"] = df["t"].map(event_colors)
+            # Add colors
+            event_colors = {
+                10: "orange",
+                13: "orange",
+                20: "gray",
+                22: "green",
+                19: "red",
+                8: "red",
+                0: "purple",
+            }
+            df["event_color"] = df["t"].map(event_colors)
 
-        # Create animated scatter plot to represent the disc
-        fig = px.scatter(
-            data_frame=df,
-            x="y",
-            y="x",
-            color_discrete_sequence=["gray"],
-            symbol_sequence=["circle"],
-            animation_frame="event",
-            size=[1 for x in range(df.shape[0])],
-            size_max=10,
-            width=600,
-            height=350,
-        )
+            # Create animated scatter plot to represent the disc
+            fig = px.scatter(
+                data_frame=df,
+                x="y",
+                y="x",
+                color_discrete_sequence=["gray"],
+                symbol_sequence=["circle"],
+                animation_frame="event",
+                size=[1 for x in range(df.shape[0])],
+                size_max=10,
+                width=600,
+                height=350,
+            )
 
-        # Remove hover info for the disc
-        fig.update_traces(
-            selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
-        )
+            # Remove hover info for the disc
+            fig.update_traces(
+                selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
+            )
 
-        # Plot each type of event as a different color
-        for event_name in df.sort_values("event")["event_name"].unique():
-            group = df.query(f"event_name=='{event_name}'")
-            fig.add_scatter(
-                x=group["y"],
-                y=group["x"],
-                marker_color=group["event_color"],
-                marker_symbol="diamond",
-                mode="markers",
-                name=group["event_name"].iloc[0],
-                hovertemplate="%{text}<extra></extra>",
-                text=[
-                    "<br>".join(
-                        [
-                            f"<b>{row['play_description']}</b>",
-                            f"Downfield Yards: {row['yyards_raw']:.1f}",
-                            f"Sideways Yards: {row['xyards_raw']:.1f}",
-                            f"Total Yards: {row['yards_raw']:.1f}",
-                        ]
-                    )
-                    for i, row in group.iterrows()
-                ],
+            # Plot each type of event as a different color
+            for event_name in df.sort_values("event")["event_name"].unique():
+                group = df.query(f"event_name=='{event_name}'")
+                fig.add_scatter(
+                    x=group["y"],
+                    y=group["x"],
+                    marker_color=group["event_color"],
+                    marker_symbol="diamond",
+                    mode="markers",
+                    name=group["event_name"].iloc[0],
+                    hovertemplate="%{text}<extra></extra>",
+                    text=[
+                        "<br>".join(
+                            [
+                                f"<b>{row['play_description']}</b>",
+                                f"Downfield Yards: {row['yyards_raw']:.1f}",
+                                f"Sideways Yards: {row['xyards_raw']:.1f}",
+                                f"Total Yards: {row['yards_raw']:.1f}",
+                            ]
+                        )
+                        for i, row in group.iterrows()
+                    ],
+                )
+
+            # Change slider labels
+            for i, step in enumerate(fig.layout["sliders"][0]["steps"]):
+                fig.layout["sliders"][0]["steps"][i]["label"] = df.loc[
+                    df["event"] == i + 1, "play_description"
+                ].iloc[0]
+
+            # Remove slider prefix
+            fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
+
+            # Adjust slider position
+            fig.layout["sliders"][0]["pad"] = {
+                "b": 5,
+                "t": 10,
+            }
+            fig.layout["sliders"][0]["y"] = 0.1
+
+            # Adjust play and stop button position
+            fig.layout["updatemenus"][0]["x"] = 0.1
+            fig.layout["updatemenus"][0]["y"] = 0.24
+
+            # Remove hover info for the disc
+            for i, _ in enumerate(fig.frames):
+                fig.frames[i]["data"][0]["hovertemplate"] = None
+        except IndexError:
+            fig = go.Figure()
+            fig.update_layout(
+                width=600, height=350,
             )
 
         # Draw field boundaries
@@ -1646,30 +1675,6 @@ class Game:
             # Remove margins
             margin=dict(t=25, b=0, l=0, r=0,),
         )
-
-        # Change slider labels
-        for i, step in enumerate(fig.layout["sliders"][0]["steps"]):
-            fig.layout["sliders"][0]["steps"][i]["label"] = df.loc[
-                df["event"] == i + 1, "play_description"
-            ].iloc[0]
-
-        # Remove slider prefix
-        fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
-
-        # Adjust slider position
-        fig.layout["sliders"][0]["pad"] = {
-            "b": 5,
-            "t": 10,
-        }
-        fig.layout["sliders"][0]["y"] = 0.1
-
-        # Adjust play and stop button position
-        fig.layout["updatemenus"][0]["x"] = 0.1
-        fig.layout["updatemenus"][0]["y"] = 0.24
-
-        # Remove hover info for the disc
-        for i, _ in enumerate(fig.frames):
-            fig.frames[i]["data"][0]["hovertemplate"] = None
 
         return fig
 
