@@ -1162,14 +1162,15 @@ class Game:
             ),
             # Remove y axis title
             yaxis=dict(title=None,),
-            # Remove legend title and change to horizontal legend on top
+            # Remove legend title
             legend=dict(
                 title=None,
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
+                # # Change to horizontal legend on top
+                # orientation="h",
+                # yanchor="bottom",
+                # y=1.02,
+                # xanchor="right",
+                # x=1,
             ),
             # Set title and colors for turnovers
             coloraxis_colorbar_title="Turns During Point",
@@ -1184,7 +1185,7 @@ class Game:
             # Change font
             font_family="TW Cen MT",
             # Remove margins
-            margin=dict(t=60, b=0, l=0, r=0,),
+            margin=dict(t=25, b=0, l=0, r=0,),
         )
 
         # Set the ranges for shading the chart by cluster
