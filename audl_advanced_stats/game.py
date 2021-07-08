@@ -773,7 +773,7 @@ class Game:
         homeawaystr = {True: "home", False: "away"}
         events_file_name = join(
             self.events_path,
-            f"{self.game_info['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather",
+            f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather",
         )
         try:
             df = pd.read_feather(events_file_name)
