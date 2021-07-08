@@ -1518,10 +1518,12 @@ class Game:
             # Add colors
             event_colors = {
                 10: "orange",
+                12: "orange",
                 13: "orange",
                 20: "gray",
                 22: "green",
                 19: "red",
+                17: "red",
                 8: "red",
                 0: "purple",
             }
