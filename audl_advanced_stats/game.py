@@ -513,7 +513,12 @@ class Game:
             period=lambda x: np.where(
                 x["t"].isin([23, 24, 25, 26, 27, 28]), x["t"] - 22, None
             )
-        ).assign(period=lambda x: x["period"].fillna(method="bfill"))
+        )
+
+        # Some games do not have the event for the end of the 4th period, so we have to add it manually
+        if 26 not in df["t"].unique():
+            df.loc[df.index == df.index.max(), "period"] = 4
+        df = df.assign(period=lambda x: x["period"].fillna(method="bfill"))
         return df
 
     def get_events_times(self, df):
