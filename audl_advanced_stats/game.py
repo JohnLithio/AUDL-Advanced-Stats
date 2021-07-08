@@ -236,6 +236,17 @@ class Game:
             self.away_roster = self.get_roster(home=False)
         return self.away_roster
 
+    def add_fourth_period(self, df):
+        """If necessary, add a row to represent the end of the fourth period."""
+        # Some games do not have the event for the end of the 4th period, so we have to add it manually
+        if 26 not in df["t"].unique():
+            fourth_period_row = pd.DataFrame(
+                data=[[None for _ in list(df)]], columns=list(df)
+            )
+            fourth_period_row["t"] = 26
+            df = df.append(fourth_period_row)
+        return df
+
     def get_events_basic_info(self, df, home):
         # Set parameters for home or away
         if home:
@@ -513,12 +524,7 @@ class Game:
             period=lambda x: np.where(
                 x["t"].isin([23, 24, 25, 26, 27, 28]), x["t"] - 22, None
             )
-        )
-
-        # Some games do not have the event for the end of the 4th period, so we have to add it manually
-        if 26 not in df["t"].unique():
-            df.loc[df.index == df.index.max(), "period"] = 4
-        df = df.assign(period=lambda x: x["period"].fillna(method="bfill"))
+        ).assign(period=lambda x: x["period"].fillna(method="bfill"))
         return df
 
     def get_events_times(self, df):
@@ -794,6 +800,7 @@ class Game:
 
             df = (
                 pd.DataFrame.from_records(events_raw)
+                .pipe(self.add_fourth_period)
                 .pipe(self.get_events_basic_info, home=home)
                 .pipe(self.get_events_periods)
                 .pipe(self.get_events_possession_labels)
