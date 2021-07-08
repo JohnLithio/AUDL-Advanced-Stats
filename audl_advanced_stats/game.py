@@ -34,10 +34,12 @@ class Game:
         self.year = year
         self.game_url = game_url
         self.database_path = get_database_path(database_path)
-        self.json_path = get_json_path(database_path, "games")
+        self.json_path = get_json_path(database_path, "games_raw")
+        self.events_path = get_json_path(database_path, "games_processed")
 
         # Create directories/databases if they don't exist
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
+        Path(self.events_path).mkdir(parents=True, exist_ok=True)
         conn = create_connection(self.database_path)
         conn.close()
 
@@ -768,27 +770,38 @@ class Game:
 
     def get_events(self, home=True, qc=True):
         """Process the events for a single team to get yardage, event labels, etc."""
-        # Set parameters for home or away
-        if home:
-            events_raw = self.get_home_events_raw()
-        else:
-            events_raw = self.get_away_events_raw()
-
-        df = (
-            pd.DataFrame.from_records(events_raw)
-            .pipe(self.get_events_basic_info, home=home)
-            .pipe(self.get_events_periods)
-            .pipe(self.get_events_possession_labels)
-            .pipe(self.get_events_pull_info)
-            .pipe(self.get_events_o_penalties)
-            .pipe(self.get_events_d_penalties)
-            .pipe(self.get_events_yardage)
-            .pipe(self.get_events_times)
-            .pipe(self.get_events_lineups)
-            .pipe(self.get_events_throw_classifications)
-            .pipe(self.play_description, home=home)
-            .pipe(self.events_print_qc, qc=qc)
+        homeawaystr = {True: "home", False: "away"}
+        events_file_name = join(
+            self.events_path,
+            f"{self.game_info['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather",
         )
+        try:
+            df = pd.read_feather(events_file_name)
+
+        except FileNotFoundError:
+            # Set parameters for home or away
+            if home:
+                events_raw = self.get_home_events_raw()
+            else:
+                events_raw = self.get_away_events_raw()
+
+            df = (
+                pd.DataFrame.from_records(events_raw)
+                .pipe(self.get_events_basic_info, home=home)
+                .pipe(self.get_events_periods)
+                .pipe(self.get_events_possession_labels)
+                .pipe(self.get_events_pull_info)
+                .pipe(self.get_events_o_penalties)
+                .pipe(self.get_events_d_penalties)
+                .pipe(self.get_events_yardage)
+                .pipe(self.get_events_times)
+                .pipe(self.get_events_lineups)
+                .pipe(self.get_events_throw_classifications)
+                .pipe(self.play_description, home=home)
+                .pipe(self.events_print_qc, qc=qc)
+                .rename(columns=lambda x: str(x))
+            )
+            df.to_feather(events_file_name)
 
         return df
 
@@ -926,7 +939,7 @@ class Game:
             x_start = args["data_frame"][args["x_start"]]
             x_end = args["data_frame"][args["x_end"]]
 
-            # Note that we are not adding any columns to the data frame here, so no risk of overwrite
+            # We are not adding any columns to the data frame here, so no risk of overwrite
             args["data_frame"][args["x_end"]] = x_end - x_start
             args["x"] = args["x_end"]
             del args["x_end"]
@@ -1225,7 +1238,6 @@ class Game:
         # TODO: Option for 2 clusters instead of 3?
         # TODO: Change colors
         # TODO: Try annotating graph to label O, D1, D2
-        # TODO: Fix padding/spacing around graphs in app
         return fig
 
     def visual_possession_map_horizontal(self, possession_number, home=True):
