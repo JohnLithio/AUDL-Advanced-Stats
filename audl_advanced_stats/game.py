@@ -775,10 +775,12 @@ class Game:
             self.events_path,
             f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather",
         )
-        try:
+        # If events have already been processed and saved, load them
+        if Path(events_file_name).is_file():
             df = pd.read_feather(events_file_name)
 
-        except FileNotFoundError:
+        # If events have not been processed and saved before, do so
+        else:
             # Set parameters for home or away
             if home:
                 events_raw = self.get_home_events_raw()
