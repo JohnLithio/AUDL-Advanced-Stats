@@ -1375,14 +1375,14 @@ class Game:
 
             # Adjust slider position
             fig.layout["sliders"][0]["pad"] = {
-                "b": 5,
-                "t": 10,
+                "b": -25,
+                "t": 25,
             }
             fig.layout["sliders"][0]["y"] = 0.1
 
             # Adjust play and stop button position
             fig.layout["updatemenus"][0]["x"] = 0.1
-            fig.layout["updatemenus"][0]["y"] = 0.24
+            fig.layout["updatemenus"][0]["y"] = 0.15
 
             # Remove hover info for the disc
             for i, _ in enumerate(fig.frames):
