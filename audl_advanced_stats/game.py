@@ -833,7 +833,9 @@ class Game:
 
     def total_time_to_readable(self, time):
         """Convert total seconds from start of game to min:sec left in quarter."""
-        total_left_quarter = 720 - time % 720
+        total_left_quarter = pd.Series(
+            np.where(time < 2880, 720 - time % 720, 300 - time % 720), index=time.index
+        )
         minutes = np.floor(total_left_quarter / 60)
         seconds = total_left_quarter % 60
         return (
