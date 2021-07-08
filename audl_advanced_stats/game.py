@@ -979,7 +979,7 @@ class Game:
         #    that each player has their own row for every point they played
         dfs = []
         for i, player in roster.iterrows():
-            playerid = player["id"]
+            playerid = str(player["id"])
             # Only get players who played in the game
             if playerid in events:
                 df = (
@@ -988,7 +988,7 @@ class Game:
                     .head(1)
                     .query("elapsed!=0")
                     .assign(
-                        playerid=str(playerid),
+                        playerid=playerid,
                         firstname=player["first_name"].strip(),
                         lastname=player["last_name"].strip(),
                         name=player["first_name"].strip()
