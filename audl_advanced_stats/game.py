@@ -806,11 +806,9 @@ class Game:
 
     def total_time_to_readable(self, time):
         """Convert total seconds from start of game to min:sec left in quarter."""
-        print(time.isna().sum())
         total_left_quarter = 720 - time % 720
         minutes = np.floor(total_left_quarter / 60)
         seconds = total_left_quarter % 60
-        print(seconds.isna().sum())
         return (
             minutes.astype(int).astype(str)
             + ":"
