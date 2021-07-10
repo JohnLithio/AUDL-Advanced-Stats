@@ -1050,6 +1050,33 @@ class Game:
         if df["s_total"].max() > 4 * 12 * 60:
             xticks[60 * 12 * 4 + 60 * 5 * 1] = "End of OT1"
 
+        # Add vertical lines to mark quarters
+        for xval, label in xticks.items():
+            line_dash = "solid"
+            line_color = "lightgray"
+            line_width = 1
+            fig.add_shape(
+                type="line",
+                y0=0,
+                y1=df["points"].max(),
+                x0=xval,
+                x1=xval,
+                line_width=line_width,
+                line_color=line_color,
+                line_dash=line_dash,
+                layer="below",
+            )
+
+            # Add labels for each quarter
+            fig.add_annotation(
+                xref="x", yref="y", x=xval, y=-1, showarrow=False, text=label,
+            )
+
+        # Add all times corresponding with scores
+        for i, row in df[["s_total", "s_readable"]].drop_duplicates().iterrows():
+            if row["s_total"] not in xticks.keys():
+                xticks[row["s_total"]] = row["s_readable"]
+
         # Change y-axis label
         fig.update_layout(
             # Add tick labels to fig
@@ -1060,13 +1087,15 @@ class Game:
                 tickvals=list(xticks.keys()),
                 ticktext=list(xticks.values()),
                 ticks="",
-                showgrid=True,
-                gridcolor="lightgray",
-                gridwidth=1,
-                zeroline=True,
-                zerolinecolor="lightgray",
-                zerolinewidth=1,
-                hoverformat=None,
+                showticklabels=False,
+                showgrid=False,
+                zeroline=False,
+                showspikes=True,
+                spikesnap="cursor",
+                spikemode="across",
+                spikecolor="black",
+                spikethickness=2,
+                spikedash="solid",
             ),
             # Change y axis title
             yaxis=dict(title="Points", showgrid=False, zerolinecolor="lightgray",),
@@ -1080,28 +1109,12 @@ class Game:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change hovermode to show info for both lines
-            hovermode="x",
+            hovermode="x unified",
         )
 
-        # TODO: Fix x-axis hover text. Might need to add more tick marks/labels, similar to the end of quarter and start of game labels.
-        hovertext = "".join(["%{customdata[0]}: %{y}", "<extra></extra>",])
-
-        # hovertext = "<br>".join(
-        #     [
-        #         "%{customdata[1]}",
-        #         "Team: %{customdata[0]}",
-        #         "Points: %{y}",
-        #         "<extra></extra>",
-        #     ]
-        # )
-
         # Customize info shown on hover
-        fig.update_traces(hovertemplate=hovertext)
-        # for i, _ in enumerate(fig.data):
-        #     if i == 0:
-        #         fig.data[i].update(hovertemplate=hovertext)
-        #     else:
-        #         fig.data[i].update(hovertemplate=None)
+        hovertext = "".join(["%{customdata[0]}: %{y}", "<extra></extra>",])
+        fig.update_traces(hovertemplate=hovertext, legendgroup="a")
 
         return fig
 
