@@ -1515,9 +1515,6 @@ class Game:
             fig.update_traces(
                 selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
             )
-            print(df["t"].value_counts(dropna=False).sort_index())
-            print(df["t_after"].value_counts(dropna=False).sort_index())
-            print(df[["t", "t_after", "event_name"]])
 
             # Plot each type of event as a different color
             for event_name in df.sort_values("event")["event_name"].unique():
@@ -1580,7 +1577,6 @@ class Game:
                         layer="below",
                     )
         except IndexError as e:
-            print(e)
             fig = go.Figure()
             fig.update_layout(
                 width=600, height=350,
