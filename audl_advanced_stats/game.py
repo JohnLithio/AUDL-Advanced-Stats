@@ -964,6 +964,26 @@ class Game:
 
         return times_cluster
 
+    def get_game_flow_margins(self):
+        """Get the margin properties based on the length of player names."""
+        # Get all players who were in the game on either team
+        events = pd.concat([self.get_home_events(), self.get_away_events()])
+        rosters = pd.concat([self.get_home_roster(), self.get_away_roster()])
+        playerids = events.query("r==r")["r"].unique()
+
+        # Get the length of the longest name on either team and set the margin based on that
+        longest_name = (
+            rosters.loc[rosters["id"].isin(playerids)]
+            .assign(
+                name_length=lambda x: x["first_name"].str.len()
+                + x["last_name"].str.len()
+            )["name_length"]
+            .max()
+        )
+        left_margin = longest_name * 6
+
+        return dict(t=25, b=20, l=left_margin, r=150, autoexpand=False)
+
     def visual_game_score(self, qc=False):
         """Line chart showing scoring progression throughout the game."""
         # Use the home team events for the score timestamps
@@ -975,7 +995,7 @@ class Game:
 
         # Get the time of all scores
         df = (
-            events.query("t==[21,22]")[["t", "s_total"]]
+            events.query("t==[21,22]")[["t", "s_total", "period"]]
             .reset_index(drop=True)
             .reset_index()
             .assign(
@@ -1035,6 +1055,7 @@ class Game:
             line_shape="hv",
             hover_name="s_readable",
             custom_data=["team", "s_readable",],
+            height=250,
         )
 
         # Set the labels for the x-axis tick marks
@@ -1069,13 +1090,21 @@ class Game:
 
             # Add labels for each quarter
             fig.add_annotation(
-                xref="x", yref="y", x=xval, y=-1, showarrow=False, text=label,
+                xref="x", yref="y", x=xval, y=-2, showarrow=False, text=label,
             )
 
         # Add all times corresponding with scores
-        for i, row in df[["s_total", "s_readable"]].drop_duplicates().iterrows():
+        for i, row in (
+            df[["s_total", "s_readable", "period",]].drop_duplicates().iterrows()
+        ):
             if row["s_total"] not in xticks.keys():
-                xticks[row["s_total"]] = row["s_readable"]
+                if row["period"] <= 4:
+                    period_str = f"Q{int(row['period'])}"
+                elif row["period"] == 5:
+                    period_str = "OT1"
+                else:
+                    period_str = "OT2"
+                xticks[row["s_total"]] = f"{period_str}: {row['s_readable']}"
 
         # Change y-axis label
         fig.update_layout(
@@ -1103,8 +1132,8 @@ class Game:
             legend=dict(title=None,),
             # Change font
             font_family="TW Cen MT",
-            # Remove margins
-            margin=dict(t=25, b=0, l=0, r=0,),
+            # Set margins
+            margin=self.get_game_flow_margins(),
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1393,8 +1422,8 @@ class Game:
             coloraxis_colorbar_dtick=1,
             # Change font
             font_family="TW Cen MT",
-            # Remove margins
-            margin=dict(t=25, b=0, l=0, r=0,),
+            # Set margins
+            margin=self.get_game_flow_margins(),
         )
 
         # Set the ranges for shading the chart by cluster
