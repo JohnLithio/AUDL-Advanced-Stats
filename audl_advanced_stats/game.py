@@ -967,7 +967,9 @@ class Game:
     def get_game_flow_margins(self):
         """Get the margin properties based on the length of player names."""
         # Get all players who were in the game on either team
-        events = pd.concat([self.get_home_events(), self.get_away_events()])
+        events = pd.concat(
+            [self.get_home_events(qc=False), self.get_away_events(qc=False)]
+        )
         rosters = pd.concat([self.get_home_roster(), self.get_away_roster()])
         playerids = events.query("r==r")["r"].unique()
 
