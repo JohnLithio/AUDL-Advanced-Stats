@@ -437,6 +437,26 @@ class Game:
         ).drop(columns=["ms"])
         return df
 
+    def get_events_stalls(self, df):
+        # Set x and y positions for stalls
+        stalls = (
+            df.query("t==[17, 20]")
+            .groupby(["possession_number"])[["r", "x", "y"]]
+            .shift(1)
+            .rename(columns=lambda x: x + "_new")
+        )
+        stalls = stalls.loc[stalls.index.isin(df.query("t==[17]").index)]
+        df = (
+            pd.concat([df, stalls], axis=1)
+            .assign(
+                x=lambda x: x["x"].fillna(x["x_new"]),
+                y=lambda x: x["y"].fillna(x["y_new"]),
+                r=lambda x: x["r"].fillna(x["r_new"]),
+            )
+            .drop(columns=["x_new", "y_new", "r_new"])
+        )
+        return df
+
     def get_events_o_penalties(self, df):
         # Adjust x and y positions for penalties against the offense
         o_penalties = (
@@ -492,7 +512,7 @@ class Game:
     def get_events_yardage(self, df):
         # Get the x,y position for the next throwaway, travel, defensive foul, drop, completion, or score
         next_event = (
-            df.query("t==[8,10,12,19,20,22]")
+            df.query("t==[8,10,12,17,19,20,22]")
             .groupby(["possession_number"])[["r", "x", "y", "t", "event_name"]]
             .shift(-1)
             .rename(columns=lambda x: x + "_after")
@@ -805,6 +825,7 @@ class Game:
                 .pipe(self.get_events_periods)
                 .pipe(self.get_events_possession_labels)
                 .pipe(self.get_events_pull_info)
+                .pipe(self.get_events_stalls)
                 .pipe(self.get_events_o_penalties)
                 .pipe(self.get_events_d_penalties)
                 .pipe(self.get_events_yardage)
@@ -942,6 +963,147 @@ class Game:
             )
 
         return times_cluster
+
+    def visual_game_score(self, qc=False):
+        """Line chart showing scoring progression throughout the game."""
+        # Use the home team events for the score timestamps
+        events = self.get_home_events(qc=qc)
+
+        # Get home and away team cities for labeling
+        home_team = self.get_home_team()["city"].iloc[0]
+        away_team = self.get_away_team()["city"].iloc[0]
+
+        # Get the time of all scores
+        df = (
+            events.query("t==[21,22]")[["t", "s_total"]]
+            .reset_index(drop=True)
+            .reset_index()
+            .assign(
+                team=lambda x: np.where(x["t"] == 22, home_team, away_team,),
+                points=lambda x: x.groupby(["team"])["t"].cumcount() + 1,
+                s_readable=lambda x: self.total_time_to_readable(x["s_total"]),
+            )
+            .drop(columns=["index", "t"])
+            # Create a record for both teams on the timestamp of every score
+            .set_index(["s_total", "s_readable", "team"])
+            .unstack(["team"])
+            .fillna(method="ffill")
+            .stack()
+            .reset_index()
+        )
+
+        # Add points for the start of the game when the score was 0-0
+        start = pd.DataFrame(
+            {
+                "s_total": [0, 0],
+                "s_readable": ["12:00", "12:00"],
+                "team": [home_team, away_team],
+                "points": [0, 0],
+            }
+        )
+
+        # Add points for the end of the game
+        if df["s_total"].max() > 4 * 12 * 60 + 5 * 60:
+            end_time = df["s_total"].max()
+        elif df["s_total"].max() > 4 * 12 * 60:
+            end_time = 4 * 12 * 60 + 5 * 60
+        else:
+            end_time = 4 * 12 * 60
+
+        xrange = [-20, end_time + 10]
+
+        end = pd.DataFrame(
+            {
+                "s_total": [end_time, end_time],
+                "s_readable": ["0:00", "0:00"],
+                "team": [home_team, away_team],
+                "points": [
+                    df.query(f"team=='{home_team}'")["points"].max(),
+                    df.query(f"team=='{away_team}'")["points"].max(),
+                ],
+            }
+        )
+
+        df = start.append(df).append(end)
+
+        # Create line graph
+        fig = px.line(
+            df,
+            x="s_total",
+            y="points",
+            color="team",
+            line_shape="hv",
+            hover_name="s_readable",
+            custom_data=["team", "s_readable",],
+        )
+
+        # Set the labels for the x-axis tick marks
+        xticks = {
+            0: "Game Start",
+            60 * 12 * 1: "End of Q1",
+            60 * 12 * 2: "End of Q2",
+            60 * 12 * 3: "End of Q3",
+            60 * 12 * 4: "End of Q4",
+        }
+
+        # Add OT if there are events that take place beyond 4 quarters
+        if df["s_total"].max() > 4 * 12 * 60:
+            xticks[60 * 12 * 4 + 60 * 5 * 1] = "End of OT1"
+
+        # Change y-axis label
+        fig.update_layout(
+            # Add tick labels to fig
+            xaxis=dict(
+                title=None,
+                range=xrange,
+                tickmode="array",
+                tickvals=list(xticks.keys()),
+                ticktext=list(xticks.values()),
+                ticks="",
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+                zeroline=True,
+                zerolinecolor="lightgray",
+                zerolinewidth=1,
+                hoverformat=None,
+            ),
+            # Change y axis title
+            yaxis=dict(title="Points", showgrid=False, zerolinecolor="lightgray",),
+            # Remove legend title
+            legend=dict(title=None,),
+            # Change font
+            font_family="TW Cen MT",
+            # Remove margins
+            margin=dict(t=25, b=0, l=0, r=0,),
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change hovermode to show info for both lines
+            hovermode="x",
+        )
+
+        # TODO: Fix x-axis hover text. Might need to add more tick marks/labels, similar to the end of quarter and start of game labels.
+        hovertext = "".join(["%{customdata[0]}: %{y}", "<extra></extra>",])
+
+        # hovertext = "<br>".join(
+        #     [
+        #         "%{customdata[1]}",
+        #         "Team: %{customdata[0]}",
+        #         "Points: %{y}",
+        #         "<extra></extra>",
+        #     ]
+        # )
+
+        # Customize info shown on hover
+        fig.update_traces(hovertemplate=hovertext)
+        # for i, _ in enumerate(fig.data):
+        #     if i == 0:
+        #         fig.data[i].update(hovertemplate=hovertext)
+        #     else:
+        #         fig.data[i].update(hovertemplate=None)
+
+        return fig
 
     def visual_game_flow(self, color="point_outcome", home=True, qc=True):
         """Gantt chart showing the substitution patterns of a team throughout 1 game."""
@@ -1353,6 +1515,9 @@ class Game:
             fig.update_traces(
                 selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
             )
+            print(df["t"].value_counts(dropna=False).sort_index())
+            print(df["t_after"].value_counts(dropna=False).sort_index())
+            print(df[["t", "t_after", "event_name"]])
 
             # Plot each type of event as a different color
             for event_name in df.sort_values("event")["event_name"].unique():
@@ -1401,7 +1566,21 @@ class Game:
             # Remove hover info for the disc
             for i, _ in enumerate(fig.frames):
                 fig.frames[i]["data"][0]["hovertemplate"] = None
-        except IndexError:
+
+            # Add a line for each of the throws
+            for i, row in df.iterrows():
+                if (row["x"] == row["x"]) and (row["x_after"] == row["x_after"]):
+                    fig.add_shape(
+                        type="line",
+                        x0=row["y"],
+                        y0=row["x"],
+                        x1=row["y_after"],
+                        y1=row["x_after"],
+                        line=dict(color=event_colors[row["t_after"]]),
+                        layer="below",
+                    )
+        except IndexError as e:
+            print(e)
             fig = go.Figure()
             fig.update_layout(
                 width=600, height=350,
@@ -1441,19 +1620,6 @@ class Game:
             ax=60,
             text="Attacking",
         )
-
-        # Add a line for each of the throws
-        for i, row in df.iterrows():
-            if (row["x"] == row["x"]) and (row["x_after"] == row["x_after"]):
-                fig.add_shape(
-                    type="line",
-                    x0=row["y"],
-                    y0=row["x"],
-                    x1=row["y_after"],
-                    y1=row["x_after"],
-                    line=dict(color=event_colors[row["t_after"]]),
-                    layer="below",
-                )
 
         # Set figure properties
         fig.update_layout(
