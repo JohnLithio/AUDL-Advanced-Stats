@@ -1439,11 +1439,10 @@ class Game:
                 fixedrange=True,
             ),
             # Remove y axis title
-            yaxis=dict(title=None,),
+            yaxis=dict(title=None, fixedrange=True,),
             # Remove legend title
             legend=dict(
                 title=None,
-                fixedrange=True,
                 # # Change to horizontal legend on top
                 # orientation="h",
                 # yanchor="bottom",
