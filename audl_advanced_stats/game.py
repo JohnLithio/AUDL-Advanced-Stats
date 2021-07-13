@@ -1021,7 +1021,7 @@ class Game:
         )
         left_margin = longest_name * 6
 
-        return dict(t=25, b=20, l=left_margin, r=150, autoexpand=False)
+        return dict(t=0, b=20, l=left_margin, r=150, autoexpand=False)
 
     def visual_game_score(self, qc=False):
         """Line chart showing scoring progression throughout the game."""
@@ -1601,7 +1601,7 @@ class Game:
                 size=[1 for x in range(df.shape[0])],
                 size_max=10,
                 width=width,
-                height=width * 54 / 120,
+                height=width * 54 / 120 + 100,
             )
 
             # Remove hover info for the disc
@@ -1743,7 +1743,7 @@ class Game:
             hoverlabel_font_family="TW Cen MT",
             showlegend=False,
             # Remove margins
-            margin=dict(t=25, b=0, l=0, r=0,),
+            margin=dict(t=0, b=0, l=0, r=0,),
         )
 
         return fig
