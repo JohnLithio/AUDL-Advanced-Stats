@@ -122,6 +122,10 @@ class Game:
         else:
             events_str = "tsgAway"
 
+        assert (
+            self.get_response()[events_str] is not None
+        ), "Events not available for this game."
+
         # Get the events
         events = literal_eval(
             self.get_response()[events_str]["events"]
@@ -308,6 +312,12 @@ class Game:
                     x["t"].map(EVENT_TYPES),
                     None,
                 ),
+                possession_outcome_general=lambda x: np.where(
+                    x["t"].isin([5, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,])
+                    & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
+                    x["t"].map(EVENT_TYPES_GENERAL),
+                    None,
+                ),
             )
             .assign(
                 # Set the outcome of each point and possession
@@ -342,6 +352,9 @@ class Game:
                 possession_outcome=lambda x: x["possession_outcome"].fillna(
                     method="bfill"
                 ),
+                possession_outcome_general=lambda x: x[
+                    "possession_outcome_general"
+                ].fillna(method="bfill"),
                 point_number=lambda x: np.where(
                     x["t"].isin([23, 24, 25, 26, 27]),
                     x["point_number"].shift(1),
@@ -518,24 +531,37 @@ class Game:
             .rename(columns=lambda x: x + "_after")
         )
         # Add columns for the next event to each row so we can calculate yardage
-        df = pd.concat([df, next_event], axis=1).assign(
-            # Set x and y values for pulls to align with the format for other events
-            x_after=lambda x: np.where(x["t"].isin([3, 4]), x["x"], x["x_after"]),
-            y_after=lambda x: np.where(x["t"].isin([3, 4]), x["y"], x["y_after"]),
-            x=lambda x: np.where(x["t"].isin([3, 4]), 0, x["x"]),
-            y=lambda x: np.where(x["t"].isin([3, 4]), 20, x["y"]),
-            # Calculate yardage in x direction
-            xyards_raw=lambda x: x["x_after"] - x["x"],
-            # Calculate absolute value of yardage in x direction
-            xyards=lambda x: np.abs(x["xyards_raw"]),
-            # Calculate yards in y direction, including yards in the endzone
-            yyards_raw=lambda x: x["y_after"] - x["y"],
-            # Calculate yards in y direction, excluding yards in the endzone
-            yyards=lambda x: x["y_after"].clip(upper=100) - x["y"],
-            # Calculate the total distance of the throw, including yards in the endzone
-            yards_raw=lambda x: (x["xyards"].pow(2) + x["yyards_raw"].pow(2)).pow(0.5),
-            # Calculate the total distance of the throw, excluding yards in the endzone
-            yards=lambda x: (x["xyards"].pow(2) + x["yyards"].pow(2)).pow(0.5),
+        df = (
+            pd.concat([df, next_event], axis=1)
+            .assign(
+                # Set x and y values for pulls to align with the format for other events
+                x_after=lambda x: np.where(x["t"].isin([3, 4]), x["x"], x["x_after"]),
+                y_after=lambda x: np.where(x["t"].isin([3, 4]), x["y"], x["y_after"]),
+                x=lambda x: np.where(x["t"].isin([3, 4]), 0, x["x"]),
+                y=lambda x: np.where(x["t"].isin([3, 4]), 20, x["y"]),
+                # Calculate yardage in x direction
+                xyards_raw=lambda x: x["x_after"] - x["x"],
+                # Calculate absolute value of yardage in x direction
+                xyards=lambda x: np.abs(x["xyards_raw"]),
+                # Calculate yards in y direction, including yards in the endzone
+                yyards_raw=lambda x: x["y_after"] - x["y"],
+                # Calculate yards in y direction, excluding yards in the endzone
+                yyards=lambda x: x["y_after"].clip(upper=100) - x["y"],
+                # Calculate the total distance of the throw, including yards in the endzone
+                yards_raw=lambda x: (x["xyards"].pow(2) + x["yyards_raw"].pow(2)).pow(
+                    0.5
+                ),
+                # Calculate the total distance of the throw, excluding yards in the endzone
+                yards=lambda x: (x["xyards"].pow(2) + x["yyards"].pow(2)).pow(0.5),
+                throw_outcome=lambda x: np.where(
+                    x["t_after"].isin([8, 17, 19]), "Turnover", None
+                ),
+            )
+            .assign(
+                throw_outcome=lambda x: np.where(
+                    x["t_after"].isin([20, 22]), "Completion", x["throw_outcome"]
+                )
+            )
         )
         return df
 
@@ -790,7 +816,8 @@ class Game:
             print(
                 "New Event Types:",
                 ", ".join(
-                    sorted(
+                    str(x)
+                    for x in sorted(
                         list(set(df["t"].unique()).difference(set(EVENT_TYPES.keys())))
                     )
                 ),
@@ -799,13 +826,16 @@ class Game:
 
         return df
 
+    def get_events_filename(self, home=True):
+        """Get string for events file."""
+        homeawaystr = {True: "home", False: "away"}
+        return (
+            f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather"
+        )
+
     def get_events(self, home=True, qc=True):
         """Process the events for a single team to get yardage, event labels, etc."""
-        homeawaystr = {True: "home", False: "away"}
-        events_file_name = join(
-            self.events_path,
-            f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather",
-        )
+        events_file_name = join(self.events_path, self.get_events_filename(home=home),)
         # If events have already been processed and saved, load them
         if Path(events_file_name).is_file():
             df = pd.read_feather(events_file_name)
@@ -1134,6 +1164,7 @@ class Game:
             legend=dict(title=None,),
             # Change font
             font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
             # Set margins
             margin=self.get_game_flow_margins(),
             # Transparent background
@@ -1424,6 +1455,7 @@ class Game:
             coloraxis_colorbar_dtick=1,
             # Change font
             font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
             # Set margins
             margin=self.get_game_flow_margins(),
         )
@@ -1627,7 +1659,7 @@ class Game:
             )
 
         # Draw field boundaries
-        # Horizontal lines
+        # Vertical lines
         fig.add_shape(type="line", y0=-25, y1=25, x0=0, x1=0, line=dict(color="black"))
         fig.add_shape(
             type="line", y0=-25, y1=25, x0=20, x1=20, line=dict(color="black")
@@ -1639,7 +1671,7 @@ class Game:
             type="line", y0=-25, y1=25, x0=120, x1=120, line=dict(color="black")
         )
 
-        # Vertical lines
+        # Horizontal lines
         fig.add_shape(
             type="line", y0=-25, y1=-25, x0=0, x1=120, line=dict(color="black")
         )
@@ -1689,6 +1721,7 @@ class Game:
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
             font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
             showlegend=False,
             # Remove margins
             margin=dict(t=25, b=0, l=0, r=0,),
