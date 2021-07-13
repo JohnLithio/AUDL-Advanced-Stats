@@ -1,4 +1,7 @@
+import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import sqlite3
 from ast import literal_eval
@@ -9,7 +12,7 @@ from pathlib import Path
 from re import search
 from .constants import *
 from .game import Game
-from .utils import get_database_path, get_json_path, create_connection
+from .utils import get_database_path, get_json_path, get_games_path, create_connection
 
 
 class Season:
@@ -30,9 +33,12 @@ class Season:
         self.year = year
         self.database_path = get_database_path(database_path)
         self.json_path = get_json_path(database_path, "games")
+        self.games_path = get_games_path(database_path, "all_games")
 
         # Create directories/databases if they don't exist
+        Path(self.database_path).mkdir(parents=True, exist_ok=True)
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
+        Path(self.games_path).mkdir(parents=True, exist_ok=True)
         conn = create_connection(self.database_path)
         conn.close()
 
@@ -40,6 +46,9 @@ class Season:
         self.schedule_url = SCHEDULE_URL
         self.stats_url = STATS_URL
         self.weeks_urls = None
+        self.game_info = None
+
+        # All processed game data
         self.games = None
 
     def get_weeks_urls(self):
@@ -60,9 +69,9 @@ class Season:
 
         return self.weeks_urls
 
-    def get_games(self, override=False):
+    def get_game_info(self, override=False):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
-        if self.games is None:
+        if self.game_info is None:
             # Check if games already exist in DB
             retrieved_games = False
             try:
@@ -120,15 +129,440 @@ class Season:
                     conn.commit()
                     conn.close()
 
-            self.games = df
+            self.game_info = df
+
+        return self.game_info
+
+    def get_games(self, small_file=False, build_new_file=False, qc=True):
+        """Download and process all game data."""
+        if self.games is None:
+
+            file_name_small = join(self.games_path, f"all_games_small.feather")
+            file_name = join(self.games_path, f"all_games.feather")
+            # Get either the file with all columns or only some
+            if small_file:
+                all_games_file_name = file_name_small
+            else:
+                all_games_file_name = file_name
+
+            # Check if file already exists
+            if Path(all_games_file_name).is_file() and not build_new_file:
+                self.games = pd.read_feather(all_games_file_name)
+
+            # Compile data if file does not already exist
+            else:
+                all_games = []
+                for i, row in self.get_game_info(override=build_new_file).iterrows():
+                    try:
+                        if qc:
+                            # Print game info
+                            print(
+                                row["game_date"],
+                                row["away_team"],
+                                "at",
+                                row["home_team"],
+                            )
+
+                        # Get the game object
+                        g = Game(game_url=row["url"])
+                        events_home_file = g.get_events_filename(home=True)
+                        events_away_file = g.get_events_filename(home=True)
+
+                        # Get and process the game events if they don't already exist
+                        if not Path(events_home_file).is_file():
+                            all_games.append(g.get_home_events(qc=qc))
+                        if not Path(events_away_file).is_file():
+                            all_games.append(g.get_away_events(qc=qc))
+                    except Exception as e:
+                        if qc:
+                            print(e)
+                        pass
+                self.games = pd.DataFrame(pd.concat(all_games))
+                self.games.reset_index(drop=True).to_feather(file_name)
+
+                needed_columns = [
+                    "game_id",
+                    "team_id",
+                    "opponent_team_id",
+                    "t",
+                    "t_after",
+                    "r",
+                    "r_after",
+                    "x",
+                    "y",
+                    "x_after",
+                    "y_after",
+                    "o_point",
+                    "possession_outcome_general",
+                    "throw_outcome",
+                    "yyards",
+                    "yyards_raw",
+                    "xyards",
+                    "xyards_raw",
+                    "yards",
+                    "yards_raw",
+                ]
+                self.games[needed_columns].reset_index(drop=True).to_feather(
+                    file_name_small
+                )
 
         return self.games
 
+    def visual_field_heatmap(
+        self,
+        outcome_measure,
+        outcome,
+        metric,
+        o_point=None,
+        remove_ob_pull=False,
+        throw=True,
+        team_ids=None,
+        player_ids=None,
+        game_ids=None,
+    ):
+        """View frequency of possession, scores, turns on the field, similar to shot chart."""
+        df = self.get_games(small_file=True, build_new_file=False, qc=False,)
 
-# Create database with league info
-#    Team rosters (ID and names - other info too? Height/weight? Number?)
-#    Teams (ID and team names)
-# Get raw response from URL
-# Parse/encode response
-# Re-format response
-# Save response
+        # Run through initial filters
+        if team_ids is not None:
+            df = df.loc[df["team_id"].isin(team_ids)]
+        if player_ids is not None:
+            df = df.loc[df["player_id"].isin(player_ids)]
+        if game_ids is not None:
+            df = df.loc[df["game_id"].isin(game_ids)]
+        if remove_ob_pull:
+            df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
+        if o_point is None:
+            o_point = "o_point"
+
+        # Set whether heat map should be for the throw or the catch
+        if throw:
+            suffix = ""
+        else:
+            suffix = "_after"
+
+        # Set binning ranges
+        x_bins = np.linspace(-27, 27, 6)
+        y_bins = np.linspace(0, 120, 13)
+
+        # Get data for heatmap
+        df = (
+            df.query(f"x{suffix}==x{suffix}")
+            .query("t_after==[8, 10, 12, 13, 17, 19, 20, 22, 23, 24, 25, 26, 27]")
+            .query(f"o_point=={o_point}")
+            .assign(
+                x_cut=lambda x: pd.cut(
+                    x[f"x{suffix}"],
+                    bins=x_bins,
+                    labels=[i for i in range(len(x_bins) - 1)],
+                ),
+                y_cut=lambda x: pd.cut(
+                    x[f"y{suffix}"],
+                    bins=y_bins,
+                    labels=[i for i in range(len(y_bins) - 1)],
+                ),
+            )
+            .groupby(["x_cut", "y_cut", outcome_measure])
+            .agg(
+                {
+                    "game_id": "count",
+                    "yards": np.mean,
+                    "yards_raw": np.mean,
+                    "yyards": np.mean,
+                    "yyards_raw": np.mean,
+                    "xyards": np.mean,
+                    "xyards_raw": np.mean,
+                }
+            )
+            .reset_index()
+            .rename(columns={"game_id": "count"})
+            .set_index(["x_cut", "y_cut", outcome_measure])
+            .assign(
+                freq=lambda x: x.groupby(level=["x_cut", "y_cut"])["count"].sum(),
+                pct=lambda x: x["count"] / x["freq"],
+                hovertext=lambda x: f"Total Touches: "
+                + x["freq"].apply(lambda y: f"{y:.0f}")
+                + "<br>"
+                + f"# of {outcome}s: "
+                + x["count"].apply(lambda y: f"{y:.0f}")
+                + np.where(
+                    x["count"] > 0,
+                    "<br>" + f"{outcome} Pct: "
+                    # + (x["pct"].round(3) * 100).astype(str).str[:4]
+                    + x["pct"].apply(lambda y: f"{y:.1%}")
+                    + "<br>"
+                    + "Avg Sideways Yards: "
+                    + x["xyards"].apply(lambda y: f"{y:.1f}")
+                    + "<br>"
+                    + "Avg Downfield Yards: "
+                    + x["yyards_raw"].apply(lambda y: f"{y:.1f}"),
+                    "",
+                ),
+            )
+            .reset_index()
+            .query(f"{outcome_measure}=='{outcome}'")
+        )
+
+        # Set additional args depending on inputs
+        # TODO: Do this for yardages too?
+        kwargs = dict(reversescale=True)
+        if metric == "pct":
+            kwargs["colorbar_tickformat"] = ".0%"
+            if outcome_measure == "throw_outcome":
+                if outcome == "Completion":
+                    kwargs["zmin"] = 0.8
+                    kwargs["zmax"] = 1.0
+                elif outcome == "Turnover":
+                    kwargs["zmin"] = 0.0
+                    kwargs["zmax"] = 0.2
+            elif outcome_measure == "possession_outcome_general":
+                if outcome == "Score":
+                    kwargs["zmin"] = 0.2
+                    kwargs["zmax"] = 1.0
+                elif outcome == "Turnover":
+                    kwargs["zmin"] = 0.0
+                    kwargs["zmax"] = 0.8
+
+        elif metric == "count":
+            kwargs["zauto"] = True
+            kwargs["colorbar_tickformat"] = ".0,"
+        else:
+            kwargs["zauto"] = True
+            kwargs["colorbar_tickformat"] = ".0,"
+
+        # # Create figure
+        # fighm = go.Figure(
+        #     data=go.Heatmap(
+        #         z=dfhm.values,
+        #         connectgaps=False,
+        #         zsmooth="best",
+        #         colorscale="rdylbu",
+        #         showscale=True,
+        #         customdata=dfhm.values.tolist(),
+        #         # Move colorbar to left of plot
+        #         colorbar_x=0,
+        #         colorbar_y=0.01,
+        #         colorbar_xanchor="right",
+        #         colorbar_yanchor="bottom",
+        #         colorbar_lenmode="fraction",
+        #         colorbar_len=0.92,
+        #         colorbar_ticklabelposition="inside bottom",
+        #         colorbar_tickfont_color="black",
+        #         **kwargs,
+        #     )
+        # )
+        # Create figure
+        fighm = go.Figure(
+            data=go.Heatmap(
+                x=df["y_cut"],
+                y=df["x_cut"],
+                z=df[metric],
+                connectgaps=False,
+                zsmooth="best",
+                colorscale="rdylbu",
+                showscale=True,
+                customdata=df["hovertext"],
+                # Move colorbar to left of plot
+                colorbar_x=0,
+                colorbar_y=0.01,
+                colorbar_xanchor="right",
+                colorbar_yanchor="bottom",
+                colorbar_lenmode="fraction",
+                colorbar_len=0.92,
+                colorbar_ticklabelposition="inside bottom",
+                colorbar_tickfont_color="black",
+                **kwargs,
+            )
+        )
+
+        # Draw field boundaries
+        # Vertical lines
+        fighm.add_shape(
+            type="line", y0=-0.5, y1=4.5, x0=-0.5, x1=-0.5, line=dict(color="black")
+        )
+        fighm.add_shape(
+            type="line", y0=-0.5, y1=4.5, x0=1.5, x1=1.5, line=dict(color="black")
+        )
+        fighm.add_shape(
+            type="line", y0=-0.5, y1=4.5, x0=9.5, x1=9.5, line=dict(color="black")
+        )
+        fighm.add_shape(
+            type="line", y0=-0.5, y1=4.5, x0=11.5, x1=11.5, line=dict(color="black")
+        )
+
+        # Horizontal lines
+        fighm.add_shape(
+            type="line", y0=-0.5, y1=-0.5, x0=-0.5, x1=11.5, line=dict(color="black")
+        )
+        fighm.add_shape(
+            type="line", y0=4.5, y1=4.5, x0=-0.5, x1=11.5, line=dict(color="black")
+        )
+
+        # Add arrow to indicate attacking direction
+        fighm.add_annotation(
+            xref="x",
+            yref="y",
+            y=-0.75,
+            x=6,
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            axref="x",
+            ayref="y",
+            ay=-0.75,
+            ax=5,
+            text="Attacking",
+        )
+
+        # Set layout properties
+        height = 400
+        fighm.update_layout(
+            # Remove axis titles
+            xaxis_title=None,
+            yaxis_title=None,
+            # Add tick labels to fig
+            yaxis=dict(
+                # range=[-27, 30],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+                autorange="reversed",
+                scaleanchor="x",
+                scaleratio=1,
+            ),
+            # Add tick labels to fig
+            xaxis=dict(
+                # range=[-1, 121],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+            ),
+            # Set figure size
+            height=height,
+            width=height * 120 / 54,
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            # Remove margins
+            margin=dict(t=0, b=0, l=0, r=0,),
+        )
+
+        # Text to show on hover
+        hovertext_hm = "%{customdata}<extra></extra>"
+        fighm.update_traces(hovertemplate=hovertext_hm)
+
+        # Create histograms to display frequency of events near heatmap
+        fighy = px.histogram(
+            df,
+            x="y_cut",
+            y="count",
+            nbins=len(y_bins) - 1,
+            histfunc="sum",
+            range_x=[-0.5, 11.5],
+            opacity=0.5,
+            color_discrete_sequence=px.colors.qualitative.D3,
+        )
+
+        # Set histy layout properties
+        fighy.update_layout(
+            # Remove axis titles
+            xaxis_title=None,
+            yaxis_title=None,
+            # Add tick labels to fig
+            yaxis=dict(
+                # range=[-27, 30],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+                # scaleanchor="x",
+                # scaleratio=1,
+            ),
+            # Add tick labels to fig
+            xaxis=dict(
+                # range=[-1, 121],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+            ),
+            # Set figure size
+            height=100,
+            width=height * 120 / 54,
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            # Remove margins
+            margin=dict(t=0, b=0, l=0, r=0,),
+        )
+
+        # Text to show on hover
+        hovertext_hy = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
+        fighy.update_traces(hovertemplate=hovertext_hy)
+
+        fighx = px.histogram(
+            df,
+            y="x_cut",
+            x="count",
+            nbins=len(x_bins) - 1,
+            histfunc="sum",
+            orientation="h",
+            range_y=[-0.5, 4.5],
+            opacity=0.5,
+            color_discrete_sequence=px.colors.qualitative.D3,
+        )
+
+        # Set histx layout properties
+        fighx.update_layout(
+            # Remove axis titles
+            xaxis_title=None,
+            yaxis_title=None,
+            # Add tick labels to fig
+            yaxis=dict(
+                # range=[-27, 30],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                autorange="reversed",
+                fixedrange=True,
+            ),
+            # Add tick labels to fig
+            xaxis=dict(
+                # range=[-1, 121],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+            ),
+            # Set figure size
+            height=height,
+            width=100,
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            # Remove margins
+            margin=dict(t=0, b=0, l=0, r=0,),
+        )
+
+        # Text to show on hover
+        hovertext_hx = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
+        fighx.update_traces(hovertemplate=hovertext_hx)
+
+        return fighm, fighx, fighy

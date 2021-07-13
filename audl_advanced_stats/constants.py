@@ -8,8 +8,8 @@ EVENT_TYPES = {
     3: "In-bounds Pull",
     4: "Out-of-bounds Pull",
     5: "Block",
-    # 6: "",
-    # 7: "",
+    # 6: "", # TODO: What event is this? In 2021-06-04 TB at PHI
+    # 7: "", # TODO: What event is this? In 2021-06-04 TB at PHI
     8: "Throwaway",
     9: "Throwaway Caused",
     10: "Travel",
@@ -47,7 +47,7 @@ EVENT_TYPES = {
     42: "Opponent Injury",
     43: "Injury",
     44: "Offsides",
-    # 45: "",
+    # 45: "", # TODO: What event is this? In 2021-07-09 AUS at DAL
     # 46: "",
     # 47: "",
     # 48: "",
@@ -72,4 +72,20 @@ EVENT_TYPES = {
     # 67: "",
     # 68: "",
     # 69: "",
+}
+
+EVENT_TYPES_GENERAL = {
+    5: "Turnover",
+    8: "Turnover",
+    9: "Turnover",
+    17: "Turnover",
+    18: "Turnover",
+    19: "Turnover",
+    21: "Score",
+    22: "Score",
+    23: "End of Period",
+    24: "End of Period",
+    25: "End of Period",
+    26: "End of Period",
+    27: "End of Period",
 }

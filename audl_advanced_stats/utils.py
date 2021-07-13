@@ -13,6 +13,11 @@ def get_json_path(database_path, folder):
     return join(database_path, folder)
 
 
+def get_games_path(database_path, folder):
+    """Return the file path to the file that contains all game data."""
+    return join(database_path, folder)
+
+
 def create_connection(database_path, database_name="audl.db"):
     """Create a connection to a SQLite database."""
     conn = None
