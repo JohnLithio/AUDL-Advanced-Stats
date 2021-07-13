@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from json import loads
 from os.path import basename, join
 from pathlib import Path
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, Birch
 from .constants import *
 from .utils import (
     get_database_path,
@@ -927,10 +927,11 @@ class Game:
         # Sort each player into 1 of 3 clusters based on which segments they played
         #    3 segments were chosen to mimic the common pattern of O, D1, and D2
         X = psegs.values
-        kmeans = KMeans(n_clusters=3, random_state=0).fit(X)
+        # cluster_model = KMeans(n_clusters=3, random_state=0).fit(X)
+        cluster_model = Birch().fit(X)
 
         # Add clusters to player segment data
-        psegs["cluster"] = [str(x) for x in kmeans.labels_]
+        psegs["cluster"] = [str(x) for x in cluster_model.labels_]
 
         # Combine the player time data with the clusters
         times_cluster = times.merge(
@@ -949,7 +950,7 @@ class Game:
             .agg({"s_before_total": "mean", "o_point": "mean"})
             .sort_values(["o_point", "s_before_total"], ascending=[False, True])
             .reset_index()
-            .assign(cluster_name=["O-Line", "D1", "D2"])
+            # .assign(cluster_name=["O-Line", "D1", "D2"])
         )
 
         # Get the number of points each player played, which is used to sort players within each cluster
