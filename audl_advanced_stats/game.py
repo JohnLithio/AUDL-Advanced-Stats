@@ -1021,7 +1021,7 @@ class Game:
         )
         left_margin = longest_name * 6
 
-        return dict(t=0, b=20, l=left_margin, r=150, autoexpand=False)
+        return dict(t=5, b=20, l=left_margin, r=150, autoexpand=False)
 
     def visual_game_score(self, qc=False):
         """Line chart showing scoring progression throughout the game."""
