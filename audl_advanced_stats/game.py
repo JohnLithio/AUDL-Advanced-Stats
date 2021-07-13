@@ -1581,6 +1581,7 @@ class Game:
             df["event_color"] = df["t"].map(event_colors)
 
             # Create animated scatter plot to represent the disc
+            width = 800
             fig = px.scatter(
                 data_frame=df,
                 x="y",
@@ -1590,8 +1591,8 @@ class Game:
                 animation_frame="event",
                 size=[1 for x in range(df.shape[0])],
                 size_max=10,
-                width=600,
-                height=350,
+                width=width,
+                height=width * 54 / 120,
             )
 
             # Remove hover info for the disc
@@ -1662,7 +1663,7 @@ class Game:
         except IndexError as e:
             fig = go.Figure()
             fig.update_layout(
-                width=600, height=350,
+                width=width, height=width * 54 / 120,
             )
 
         # Draw field boundaries
