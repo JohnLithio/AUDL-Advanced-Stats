@@ -1531,6 +1531,9 @@ class Game:
         df.loc[df["event"] == 1, "event_name"] = "Start of Possession"
         df.loc[df["event"] == 1, "t"] = 0
 
+        # Set figure width
+        width = 800
+
         # Draw possession if there's data, otherwise draw a blank field
         try:
             last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
@@ -1581,7 +1584,6 @@ class Game:
             df["event_color"] = df["t"].map(event_colors)
 
             # Create animated scatter plot to represent the disc
-            width = 800
             fig = px.scatter(
                 data_frame=df,
                 x="y",
