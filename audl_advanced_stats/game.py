@@ -1157,9 +1157,15 @@ class Game:
                 spikecolor="black",
                 spikethickness=2,
                 spikedash="solid",
+                fixedrange=True,
             ),
             # Change y axis title
-            yaxis=dict(title="Points", showgrid=False, zerolinecolor="lightgray",),
+            yaxis=dict(
+                title="Points",
+                showgrid=False,
+                zerolinecolor="lightgray",
+                fixedrange=True,
+            ),
             # Remove legend title
             legend=dict(title=None,),
             # Change font
@@ -1430,12 +1436,14 @@ class Game:
                 ticktext=list(xticks.values()),
                 ticks="",
                 showgrid=False,
+                fixedrange=True,
             ),
             # Remove y axis title
             yaxis=dict(title=None,),
             # Remove legend title
             legend=dict(
                 title=None,
+                fixedrange=True,
                 # # Change to horizontal legend on top
                 # orientation="h",
                 # yanchor="bottom",
@@ -1707,6 +1715,7 @@ class Game:
                 zeroline=False,
                 scaleanchor="x",
                 scaleratio=1,
+                fixedrange=True,
             ),
             # Add tick labels to fig
             xaxis=dict(
@@ -1715,6 +1724,7 @@ class Game:
                 ticks="",
                 showgrid=False,
                 zeroline=False,
+                fixedrange=True,
             ),
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
