@@ -1749,6 +1749,246 @@ class Game:
 
         return fig
 
+    def visual_possession_map_vertical(self, possession_number, home=True):
+        """Map of all throws in a possession by 1 team."""
+        # Get data based on home/away team selection
+        if home:
+            events = self.get_home_events(qc=False)
+            roster = self.get_home_roster()
+        else:
+            events = self.get_away_events(qc=False)
+            roster = self.get_away_roster()
+
+        # Only keep some events
+        df = (
+            events.query("t==[10, 12, 13, 20]")
+            .query(f"possession_number=={possession_number}")
+            .reset_index(drop=True)
+            .reset_index()
+            .assign(
+                event=lambda x: x["index"] + 1,
+                x=lambda x: x["x"],
+                x_after=lambda x: x["x_after"],
+                xyards_raw=lambda x: x["xyards_raw"],
+            )
+            .drop(columns=["index"])
+            .copy()
+        )
+
+        # Re-label first event
+        df.loc[df["event"] == 1, "event_name"] = "Start of Possession"
+        df.loc[df["event"] == 1, "t"] = 0
+
+        # Set figure width
+        height = 800
+
+        # Draw possession if there's data, otherwise draw a blank field
+        try:
+            last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
+
+            # Add row for last event
+            df = df.append(
+                pd.Series(
+                    {
+                        "x": last_row["x_after"],
+                        "y": last_row["y_after"],
+                        "t": last_row["t_after"],
+                        "yyards_raw": last_row["yyards_raw"],
+                        "xyards_raw": last_row["xyards_raw"],
+                        "yards_raw": last_row["yards_raw"],
+                        "play_description": last_row["play_description"],
+                        "event_name": last_row["event_name_after"],
+                        "event": last_row["event"] + 1,
+                        "r": last_row["r_after"],
+                    }
+                ),
+                ignore_index=True,
+            )
+
+            # Shift play descriptions and yardages
+            df["play_description"] = df["play_description"].shift(1)
+            df["yyards_raw"] = df["yyards_raw"].shift(1)
+            df["xyards_raw"] = df["xyards_raw"].shift(1)
+            df["yards_raw"] = df["yards_raw"].shift(1)
+
+            # Re-label first play description and yardages
+            df.loc[df["event"] == 1, "play_description"] = "Start of Possession"
+            df.loc[df["event"] == 1, "yyards_raw"] = 0
+            df.loc[df["event"] == 1, "xyards_raw"] = 0
+            df.loc[df["event"] == 1, "yards_raw"] = 0
+
+            # Add colors
+            event_colors = {
+                10: "orange",
+                12: "orange",
+                13: "orange",
+                20: "gray",
+                22: "green",
+                19: "red",
+                17: "red",
+                8: "red",
+                0: "purple",
+            }
+            df["event_color"] = df["t"].map(event_colors)
+
+            # Create animated scatter plot to represent the disc
+            fig = px.scatter(
+                data_frame=df,
+                x="x",
+                y="y",
+                color_discrete_sequence=["gray"],
+                symbol_sequence=["circle"],
+                animation_frame="event",
+                size=[1 for x in range(df.shape[0])],
+                size_max=10,
+                width=height * 54 / 120 + 25,
+                height=height,
+            )
+
+            # Remove hover info for the disc
+            fig.update_traces(
+                selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
+            )
+
+            # Plot each type of event as a different color
+            for event_name in df.sort_values("event")["event_name"].unique():
+                group = df.query(f"event_name=='{event_name}'")
+                fig.add_scatter(
+                    x=group["x"],
+                    y=group["y"],
+                    marker_color=group["event_color"],
+                    marker_symbol="diamond",
+                    mode="markers",
+                    name=group["event_name"].iloc[0],
+                    hovertemplate="%{text}<extra></extra>",
+                    text=[
+                        "<br>".join(
+                            [
+                                f"<b>{row['play_description']}</b>",
+                                f"Downfield Yards: {row['yyards_raw']:.1f}",
+                                f"Sideways Yards: {row['xyards_raw']:.1f}",
+                                f"Total Yards: {row['yards_raw']:.1f}",
+                            ]
+                        )
+                        for i, row in group.iterrows()
+                    ],
+                )
+
+            # Change slider labels
+            for i, step in enumerate(fig.layout["sliders"][0]["steps"]):
+                fig.layout["sliders"][0]["steps"][i]["label"] = df.loc[
+                    df["event"] == i + 1, "play_description"
+                ].iloc[0]
+
+            # Remove slider prefix
+            fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
+
+            # Adjust slider position
+            fig.layout["sliders"][0]["pad"] = {
+                "b": -25,
+                "t": 25,
+            }
+            fig.layout["sliders"][0]["y"] = 0.1
+
+            # Adjust play and stop button position
+            fig.layout["updatemenus"][0]["x"] = 0.1
+            fig.layout["updatemenus"][0]["y"] = 0.125
+
+            # Remove hover info for the disc
+            for i, _ in enumerate(fig.frames):
+                fig.frames[i]["data"][0]["hovertemplate"] = None
+
+            # Add a line for each of the throws
+            for i, row in df.iterrows():
+                if (row["x"] == row["x"]) and (row["x_after"] == row["x_after"]):
+                    fig.add_shape(
+                        type="line",
+                        x0=row["x"],
+                        y0=row["y"],
+                        x1=row["x_after"],
+                        y1=row["y_after"],
+                        line=dict(color=event_colors[row["t_after"]]),
+                        layer="below",
+                    )
+        except IndexError as e:
+            fig = go.Figure()
+            fig.update_layout(
+                width=height * 54 / 120 + 25, height=height,
+            )
+
+        # Draw field boundaries
+        # Vertical lines
+        fig.add_shape(type="line", x0=-25, x1=25, y0=0, y1=0, line=dict(color="black"))
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=20, y1=20, line=dict(color="black")
+        )
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=100, y1=100, line=dict(color="black")
+        )
+        fig.add_shape(
+            type="line", x0=-25, x1=25, y0=120, y1=120, line=dict(color="black")
+        )
+
+        # Horizontal lines
+        fig.add_shape(
+            type="line", x0=-25, x1=-25, y0=0, y1=120, line=dict(color="black")
+        )
+        fig.add_shape(type="line", x0=25, x1=25, y0=0, y1=120, line=dict(color="black"))
+
+        # Add arrow to indicate attacking direction
+        fig.add_annotation(
+            xref="x",
+            yref="y",
+            x=30,
+            y=80,
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            axref="x",
+            ayref="y",
+            ax=30,
+            ay=60,
+            text="Attacking",
+        )
+
+        # Set figure properties
+        fig.update_layout(
+            # Remove axis titles
+            xaxis_title=None,
+            yaxis_title=None,
+            # Add tick labels to fig
+            xaxis=dict(
+                range=[-27, 35],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                fixedrange=True,
+            ),
+            # Add tick labels to fig
+            yaxis=dict(
+                range=[-1, 121],
+                showticklabels=False,
+                ticks="",
+                showgrid=False,
+                zeroline=False,
+                scaleanchor="x",
+                scaleratio=1,
+                fixedrange=True,
+            ),
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            showlegend=False,
+            # Remove margins
+            margin=dict(t=0, b=0, l=0, r=0,),
+        )
+
+        return fig
+
     def get_player_stats_by_game(self):
         # TODO: Identify and remove yardage from centering passes
         # team
