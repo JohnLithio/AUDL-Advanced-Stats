@@ -807,6 +807,13 @@ class Game:
             df["t_after"].isin([12,]), "Defensive Foul", df["play_description"],
         )
 
+        # End of Period
+        df["play_description"] = np.where(
+            df["t_after"].isin([23, 24, 25, 26, 27]),
+            "End of Period",
+            df["play_description"],
+        )
+
         return df
 
     def events_print_qc(self, df, qc=True):
