@@ -1401,7 +1401,6 @@ class Game:
                 "before_event",
                 "after_event",
             ],
-            width=1500,
         )
         fig.layout.xaxis.type = "linear"
 
