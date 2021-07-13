@@ -213,6 +213,8 @@ class Season:
         outcome_measure,
         outcome,
         metric,
+        x_cut=None,
+        y_cut=None,
         o_point=None,
         remove_ob_pull=False,
         throw=True,
@@ -238,8 +240,18 @@ class Season:
         # Set whether heat map should be for the throw or the catch
         if throw:
             suffix = ""
+            opposite_suffix = "_after"
         else:
             suffix = "_after"
+            opposite_suffix = ""
+
+        # x_cut and y_cut are coordinates that are
+        # the square where the throw came from if throw=False and the
+        # square where the throw went if throw=True
+        if x_cut is None:
+            x_cut = f"x_cut{opposite_suffix}"
+        if y_cut is None:
+            y_cut = f"y_cut{opposite_suffix}"
 
         # Set binning ranges
         x_bins = np.linspace(-27, 27, 6)
@@ -252,17 +264,27 @@ class Season:
             .query(f"o_point=={o_point}")
             .assign(
                 x_cut=lambda x: pd.cut(
-                    x[f"x{suffix}"],
+                    x[f"x"], bins=x_bins, labels=[i for i in range(len(x_bins) - 1)],
+                ),
+                y_cut=lambda x: pd.cut(
+                    x[f"y"], bins=y_bins, labels=[i for i in range(len(y_bins) - 1)],
+                ),
+                x_cut_after=lambda x: pd.cut(
+                    x[f"x_after"],
                     bins=x_bins,
                     labels=[i for i in range(len(x_bins) - 1)],
                 ),
-                y_cut=lambda x: pd.cut(
-                    x[f"y{suffix}"],
+                y_cut_after=lambda x: pd.cut(
+                    x[f"y_after"],
                     bins=y_bins,
                     labels=[i for i in range(len(y_bins) - 1)],
                 ),
+                x_cut_final=lambda x: x[f"x_cut{suffix}"],
+                y_cut_final=lambda x: x[f"y_cut{suffix}"],
             )
-            .groupby(["x_cut", "y_cut", outcome_measure])
+            .query(f"x_cut{opposite_suffix}=={x_cut}")
+            .query(f"y_cut{opposite_suffix}=={y_cut}")
+            .groupby(["x_cut_final", "y_cut_final", outcome_measure])
             .agg(
                 {
                     "game_id": "count",
@@ -276,9 +298,11 @@ class Season:
             )
             .reset_index()
             .rename(columns={"game_id": "count"})
-            .set_index(["x_cut", "y_cut", outcome_measure])
+            .set_index(["x_cut_final", "y_cut_final", outcome_measure])
             .assign(
-                freq=lambda x: x.groupby(level=["x_cut", "y_cut"])["count"].sum(),
+                freq=lambda x: x.groupby(level=["x_cut_final", "y_cut_final"])[
+                    "count"
+                ].sum(),
                 pct=lambda x: x["count"] / x["freq"],
                 hovertext=lambda x: f"Total Touches: "
                 + x["freq"].apply(lambda y: f"{y:.0f}")
@@ -305,7 +329,7 @@ class Season:
 
         # Set additional args depending on inputs
         # TODO: Do this for yardages too?
-        kwargs = dict(reversescale=True)
+        kwargs = dict(reversescale=False)
         if metric == "pct":
             kwargs["colorbar_tickformat"] = ".0%"
             if outcome_measure == "throw_outcome":
@@ -330,36 +354,15 @@ class Season:
             kwargs["zauto"] = True
             kwargs["colorbar_tickformat"] = ".0,"
 
-        # # Create figure
-        # fighm = go.Figure(
-        #     data=go.Heatmap(
-        #         z=dfhm.values,
-        #         connectgaps=False,
-        #         zsmooth="best",
-        #         colorscale="rdylbu",
-        #         showscale=True,
-        #         customdata=dfhm.values.tolist(),
-        #         # Move colorbar to left of plot
-        #         colorbar_x=0,
-        #         colorbar_y=0.01,
-        #         colorbar_xanchor="right",
-        #         colorbar_yanchor="bottom",
-        #         colorbar_lenmode="fraction",
-        #         colorbar_len=0.92,
-        #         colorbar_ticklabelposition="inside bottom",
-        #         colorbar_tickfont_color="black",
-        #         **kwargs,
-        #     )
-        # )
         # Create figure
         fighm = go.Figure(
             data=go.Heatmap(
-                x=df["y_cut"],
-                y=df["x_cut"],
+                x=df["y_cut_final"],
+                y=df["x_cut_final"],
                 z=df[metric],
                 connectgaps=False,
                 zsmooth="best",
-                colorscale="rdylbu",
+                colorscale="portland",
                 showscale=True,
                 customdata=df["hovertext"],
                 # Move colorbar to left of plot
@@ -461,7 +464,7 @@ class Season:
         # Create histograms to display frequency of events near heatmap
         fighy = px.histogram(
             df,
-            x="y_cut",
+            x="y_cut_final",
             y="count",
             nbins=len(y_bins) - 1,
             histfunc="sum",
@@ -514,7 +517,7 @@ class Season:
 
         fighx = px.histogram(
             df,
-            y="x_cut",
+            y="x_cut_final",
             x="count",
             nbins=len(x_bins) - 1,
             histfunc="sum",
