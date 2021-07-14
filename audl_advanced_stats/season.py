@@ -943,13 +943,11 @@ class Season:
     def visual_field_heatmap_subplots_horizontal(self, fighm, fighx, fighy):
         """Combine heatmap and histograms into single plot."""
 
-        hmratioy = 0.8
-        hmratiox = 0.85
         fig = make_subplots(
             rows=2,
             cols=2,
-            column_widths=[hmratiox, 1 - hmratiox],
-            row_heights=[1 - hmratioy, hmratioy],
+            column_widths=[HEATMAP_RATIO_H_X, 1 - HEATMAP_RATIO_H_X],
+            row_heights=[1 - HEATMAP_RATIO_H_Y, HEATMAP_RATIO_H_Y],
             shared_yaxes=True,
             shared_xaxes=True,
             vertical_spacing=0,
@@ -1050,7 +1048,7 @@ class Season:
             yref="paper",
             type="line",
             y0=0,
-            y1=hmratioy,
+            y1=HEATMAP_RATIO_H_Y,
             x0=0,
             x1=0,
             line=dict(color="black"),
@@ -1060,9 +1058,9 @@ class Season:
             yref="paper",
             type="line",
             y0=-0,
-            y1=hmratioy,
-            x0=hmratiox / 6,
-            x1=hmratiox / 6,
+            y1=HEATMAP_RATIO_H_Y,
+            x0=HEATMAP_RATIO_H_X / 6,
+            x1=HEATMAP_RATIO_H_X / 6,
             line=dict(color="black"),
         )
         fig.add_shape(
@@ -1070,9 +1068,9 @@ class Season:
             yref="paper",
             type="line",
             y0=-0,
-            y1=hmratioy,
-            x0=hmratiox * 5 / 6,
-            x1=hmratiox * 5 / 6,
+            y1=HEATMAP_RATIO_H_Y,
+            x0=HEATMAP_RATIO_H_X * 5 / 6,
+            x1=HEATMAP_RATIO_H_X * 5 / 6,
             line=dict(color="black"),
         )
         fig.add_shape(
@@ -1080,9 +1078,9 @@ class Season:
             yref="paper",
             type="line",
             y0=-0,
-            y1=hmratioy,
-            x0=hmratiox,
-            x1=hmratiox,
+            y1=HEATMAP_RATIO_H_Y,
+            x0=HEATMAP_RATIO_H_X,
+            x1=HEATMAP_RATIO_H_X,
             line=dict(color="black"),
         )
 
@@ -1094,36 +1092,34 @@ class Season:
             y0=0,
             y1=0,
             x0=0,
-            x1=hmratiox,
+            x1=HEATMAP_RATIO_H_X,
             line=dict(color="black"),
         )
         fig.add_shape(
             xref="paper",
             yref="paper",
             type="line",
-            y0=hmratioy,
-            y1=hmratioy,
+            y0=HEATMAP_RATIO_H_Y,
+            y1=HEATMAP_RATIO_H_Y,
             x0=0,
-            x1=hmratiox,
+            x1=HEATMAP_RATIO_H_X,
             line=dict(color="black"),
         )
 
         # Adjust colorbar
-        fig.data[0]["colorbar"]["len"] = hmratioy
-        fig.data[0]["colorbar"]["y"] = hmratioy
+        fig.data[0]["colorbar"]["len"] = HEATMAP_RATIO_H_Y
+        fig.data[0]["colorbar"]["y"] = HEATMAP_RATIO_H_Y
 
         return fig
 
     def visual_field_heatmap_subplots_vertical(self, fighm, fighx, fighy):
         """Combine heatmap and histograms into single plot."""
 
-        hmratioy = 0.9
-        hmratiox = 0.8
         fig = make_subplots(
             rows=2,
             cols=2,
-            column_widths=[hmratiox, 1 - hmratiox],
-            row_heights=[1 - hmratioy, hmratioy],
+            column_widths=[HEATMAP_RATIO_V_X, 1 - HEATMAP_RATIO_V_X],
+            row_heights=[1 - HEATMAP_RATIO_V_Y, HEATMAP_RATIO_V_Y],
             shared_yaxes=True,
             shared_xaxes=True,
             vertical_spacing=0,
@@ -1207,7 +1203,7 @@ class Season:
             yref="paper",
             type="line",
             x0=0,
-            x1=hmratiox,
+            x1=HEATMAP_RATIO_V_X,
             y0=0,
             y1=0,
             line=dict(color="black"),
@@ -1217,9 +1213,9 @@ class Season:
             yref="paper",
             type="line",
             x0=0,
-            x1=hmratiox,
-            y0=hmratioy / 6,
-            y1=hmratioy / 6,
+            x1=HEATMAP_RATIO_V_X,
+            y0=HEATMAP_RATIO_V_Y / 6,
+            y1=HEATMAP_RATIO_V_Y / 6,
             line=dict(color="black"),
         )
         fig.add_shape(
@@ -1227,9 +1223,9 @@ class Season:
             yref="paper",
             type="line",
             x0=0,
-            x1=hmratiox,
-            y0=hmratioy * 5 / 6,
-            y1=hmratioy * 5 / 6,
+            x1=HEATMAP_RATIO_V_X,
+            y0=HEATMAP_RATIO_V_Y * 5 / 6,
+            y1=HEATMAP_RATIO_V_Y * 5 / 6,
             line=dict(color="black"),
         )
         fig.add_shape(
@@ -1237,9 +1233,9 @@ class Season:
             yref="paper",
             type="line",
             x0=0,
-            x1=hmratiox,
-            y0=hmratioy,
-            y1=hmratioy,
+            x1=HEATMAP_RATIO_V_X,
+            y0=HEATMAP_RATIO_V_Y,
+            y1=HEATMAP_RATIO_V_Y,
             line=dict(color="black"),
         )
 
@@ -1251,23 +1247,23 @@ class Season:
             x0=0,
             x1=0,
             y0=0,
-            y1=hmratioy,
+            y1=HEATMAP_RATIO_V_Y,
             line=dict(color="black"),
         )
         fig.add_shape(
             xref="paper",
             yref="paper",
             type="line",
-            x0=hmratiox,
-            x1=hmratiox,
+            x0=HEATMAP_RATIO_V_X,
+            x1=HEATMAP_RATIO_V_X,
             y0=0,
-            y1=hmratioy,
+            y1=HEATMAP_RATIO_V_Y,
             line=dict(color="black"),
         )
 
         # Adjust colorbar
-        fig.data[0]["colorbar"]["len"] = hmratioy
-        fig.data[0]["colorbar"]["y"] = hmratioy
+        fig.data[0]["colorbar"]["len"] = HEATMAP_RATIO_V_Y
+        fig.data[0]["colorbar"]["y"] = HEATMAP_RATIO_V_Y
         fig.data[0]["colorbar"]["x"] = 0
 
         return fig

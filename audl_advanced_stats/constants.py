@@ -2,6 +2,12 @@ CURRENT_YEAR = 2021
 SCHEDULE_URL = "https://theaudl.com/league/schedule"
 STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
 
+# Ratios for heatmap subplots
+HEATMAP_RATIO_H_X = 0.85
+HEATMAP_RATIO_H_Y = 0.8
+HEATMAP_RATIO_V_X = 0.8
+HEATMAP_RATIO_V_Y = 0.9
+
 EVENT_TYPES = {
     1: "Start of O-Point",
     2: "Start of D-Point",
