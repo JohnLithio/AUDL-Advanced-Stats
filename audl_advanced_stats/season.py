@@ -1117,7 +1117,7 @@ class Season:
     def visual_field_heatmap_subplots_vertical(self, fighm, fighx, fighy):
         """Combine heatmap and histograms into single plot."""
 
-        hmratioy = 0.85
+        hmratioy = 0.9
         hmratiox = 0.8
         fig = make_subplots(
             rows=2,
