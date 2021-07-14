@@ -446,8 +446,8 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=height,
-            width=height * 120 / 54,
+            # height=height,
+            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -500,8 +500,8 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=100,
-            width=height * 120 / 54,
+            # height=100,
+            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -553,8 +553,8 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=height - 34,
-            width=100,
+            # height=height - 34,
+            # width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
