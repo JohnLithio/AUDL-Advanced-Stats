@@ -445,9 +445,9 @@ class Season:
                 zeroline=False,
                 fixedrange=True,
             ),
-            # Set figure size
-            height=height,
-            width=height * 120 / 54,
+            # # Set figure size
+            # height=height,
+            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -499,9 +499,9 @@ class Season:
                 zeroline=False,
                 fixedrange=True,
             ),
-            # Set figure size
-            height=100,
-            width=height * 120 / 54,
+            # # Set figure size
+            # height=100,
+            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -552,9 +552,9 @@ class Season:
                 zeroline=False,
                 fixedrange=True,
             ),
-            # Set figure size
-            height=height,
-            width=100,
+            # # Set figure size
+            # height=height,
+            # width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
