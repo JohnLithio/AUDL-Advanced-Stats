@@ -367,11 +367,11 @@ class Season:
                 customdata=df["hovertext"],
                 # Move colorbar to left of plot
                 colorbar_x=0,
-                colorbar_y=0.01,
+                colorbar_y=1,
                 colorbar_xanchor="right",
-                colorbar_yanchor="bottom",
+                colorbar_yanchor="top",
                 colorbar_lenmode="fraction",
-                colorbar_len=0.92,
+                colorbar_len=0.94,
                 colorbar_ticklabelposition="inside bottom",
                 colorbar_tickfont_color="black",
                 **kwargs,
@@ -405,20 +405,21 @@ class Season:
         fighm.add_annotation(
             xref="x",
             yref="y",
-            y=-0.75,
+            y=4.75,
             x=6,
             showarrow=True,
             arrowhead=2,
             arrowsize=1.5,
             axref="x",
             ayref="y",
-            ay=-0.75,
+            ay=4.75,
             ax=5,
             text="Attacking",
         )
 
         # Set layout properties
         height = 400
+        left_margin = 40
         fighm.update_layout(
             # Remove axis titles
             xaxis_title=None,
@@ -453,8 +454,8 @@ class Season:
             # Change font
             font_family="TW Cen MT",
             hoverlabel_font_family="TW Cen MT",
-            # Remove margins
-            margin=dict(t=0, b=0, l=0, r=0,),
+            # Set margins
+            margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
 
         # Text to show on hover
@@ -507,8 +508,8 @@ class Season:
             # Change font
             font_family="TW Cen MT",
             hoverlabel_font_family="TW Cen MT",
-            # Remove margins
-            margin=dict(t=0, b=0, l=0, r=0,),
+            # Set margins
+            margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
 
         # Text to show on hover
@@ -560,8 +561,8 @@ class Season:
             # Change font
             font_family="TW Cen MT",
             hoverlabel_font_family="TW Cen MT",
-            # Remove margins
-            margin=dict(t=0, b=0, l=0, r=0,),
+            # Set margins
+            margin=dict(t=0, b=20, l=0, r=0, autoexpand=False),
         )
 
         # Text to show on hover
