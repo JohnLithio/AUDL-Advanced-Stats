@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from json import loads
 from os.path import basename, join
 from pathlib import Path
+from plotly.subplots import make_subplots
 from re import search
 from .constants import *
 from .game import Game
@@ -488,8 +489,8 @@ class Season:
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
-                scaleanchor="x",
-                scaleratio=1 / hyratio,
+                # scaleanchor="x",
+                # scaleratio=1 / hyratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
@@ -544,8 +545,8 @@ class Season:
                 zeroline=False,
                 autorange="reversed",
                 fixedrange=True,
-                scaleanchor="x",
-                scaleratio=hxratio,
+                # scaleanchor="x",
+                # scaleratio=hxratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
@@ -574,3 +575,177 @@ class Season:
         fighx.update_traces(hovertemplate=hovertext_hx)
 
         return fighm, fighx, fighy
+
+    def visual_field_heatmap_subplots(self, fighm, fighx, fighy):
+        """Combine heatmap and histograms into single plot."""
+
+        hmratioy = 0.8
+        hmratiox = 0.85
+        fig = make_subplots(
+            rows=2,
+            cols=2,
+            column_widths=[hmratiox, 1 - hmratiox],
+            row_heights=[1 - hmratioy, hmratioy],
+            shared_yaxes=True,
+            shared_xaxes=True,
+            vertical_spacing=0,
+            horizontal_spacing=0,
+        )
+        fig.add_trace(go.Heatmap(fighm.data[0]), row=2, col=1)
+        fig.add_trace(go.Histogram(fighx.data[0]), row=2, col=2)
+        fig.add_trace(go.Histogram(fighy.data[0]), row=1, col=1)
+        left_margin = 40
+        fig.update_layout(
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            # Set margins
+            margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
+        )
+        fig.update_xaxes(
+            row=2,
+            col=1,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            fixedrange=True,
+        )
+        fig.update_yaxes(
+            row=2,
+            col=1,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            fixedrange=True,
+            autorange="reversed",
+        )
+
+        fig.update_xaxes(
+            row=1,
+            col=1,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            fixedrange=True,
+        )
+        fig.update_yaxes(
+            row=1,
+            col=1,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            fixedrange=True,
+        )
+
+        fig.update_xaxes(
+            row=2,
+            col=2,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            fixedrange=True,
+        )
+        fig.update_yaxes(
+            row=2,
+            col=2,
+            showticklabels=False,
+            ticks="",
+            showgrid=False,
+            zeroline=False,
+            autorange="reversed",
+            fixedrange=True,
+        )
+
+        fig.add_annotation(
+            xref="paper",
+            yref="paper",
+            y=-0.02,
+            x=0.5,
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1.5,
+            axref="pixel",
+            ayref="pixel",
+            ay=0,
+            ax=-50,
+            text="Attacking",
+        )
+
+        # Draw field boundaries
+        # Vertical lines
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=0,
+            y1=hmratioy,
+            x0=0,
+            x1=0,
+            line=dict(color="black"),
+        )
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=-0,
+            y1=hmratioy,
+            x0=hmratiox / 6,
+            x1=hmratiox / 6,
+            line=dict(color="black"),
+        )
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=-0,
+            y1=hmratioy,
+            x0=hmratiox * 5 / 6,
+            x1=hmratiox * 5 / 6,
+            line=dict(color="black"),
+        )
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=-0,
+            y1=hmratioy,
+            x0=hmratiox,
+            x1=hmratiox,
+            line=dict(color="black"),
+        )
+
+        # # Horizontal lines
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=0,
+            y1=0,
+            x0=0,
+            x1=hmratiox,
+            line=dict(color="black"),
+        )
+        fig.add_shape(
+            xref="paper",
+            yref="paper",
+            type="line",
+            y0=hmratioy,
+            y1=hmratioy,
+            x0=0,
+            x1=hmratiox,
+            line=dict(color="black"),
+        )
+
+        # Adjust colorbar
+        fig.data[0]["colorbar"]["len"] = hmratioy
+        fig.data[0]["colorbar"]["y"] = hmratioy
+
+        return fig
