@@ -553,7 +553,7 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=height,
+            height=height - 30,
             width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
