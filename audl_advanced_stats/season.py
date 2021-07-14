@@ -462,6 +462,7 @@ class Season:
         hovertext_hm = "%{customdata}<extra></extra>"
         fighm.update_traces(hovertemplate=hovertext_hm)
 
+        hyratio = df.groupby(["y_cut_final"])["count"].sum().max()
         # Create histograms to display frequency of events near heatmap
         fighy = px.histogram(
             df,
@@ -487,8 +488,8 @@ class Season:
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
-                # scaleanchor="x",
-                # scaleratio=1,
+                scaleanchor="x",
+                scaleratio=1 / hyratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
@@ -516,6 +517,7 @@ class Season:
         hovertext_hy = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
         fighy.update_traces(hovertemplate=hovertext_hy)
 
+        hxratio = df.groupby(["x_cut_final"])["count"].sum().max()
         fighx = px.histogram(
             df,
             y="x_cut_final",
@@ -542,6 +544,8 @@ class Season:
                 zeroline=False,
                 autorange="reversed",
                 fixedrange=True,
+                scaleanchor="x",
+                scaleratio=hxratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
