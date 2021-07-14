@@ -35,11 +35,13 @@ class Season:
         self.database_path = get_database_path(database_path)
         self.json_path = get_json_path(database_path, "games")
         self.games_path = get_games_path(database_path, "all_games")
+        self.league_info_path = get_games_path(database_path, "league_info")
 
         # Create directories/databases if they don't exist
         Path(self.database_path).mkdir(parents=True, exist_ok=True)
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
         Path(self.games_path).mkdir(parents=True, exist_ok=True)
+        Path(self.league_info_path).mkdir(parents=True, exist_ok=True)
         conn = create_connection(self.database_path)
         conn.close()
 
@@ -49,8 +51,10 @@ class Season:
         self.weeks_urls = None
         self.game_info = None
 
-        # All processed game data
+        # All processed data
         self.games = None
+        self.teams = None
+        self.players = None
 
     def get_weeks_urls(self):
         """Get URLs for the schedule of each week of the season."""
@@ -208,6 +212,129 @@ class Season:
                 )
 
         return self.games
+
+    def get_teams(self, qc=False):
+        """Get all teams and team IDs from game data and save it."""
+        if self.teams is None:
+
+            file_name = join(self.league_info_path, "teams.feather")
+            # Check if file already exists
+            if Path(file_name).is_file():
+                self.teams = pd.read_feather(file_name)
+
+            # Compile data if file does not already exist
+            else:
+                team_ids = (
+                    self.get_games(small_file=False, build_new_file=False, qc=False)[
+                        "team_id"
+                    ]
+                    .unique()
+                    .tolist()
+                )
+                team_data = []
+                for i, row in self.get_game_info(override=False).iterrows():
+                    # Get games until all teams have been found
+                    if len(team_ids) == 0:
+                        break
+                    g = Game(game_url=row["url"])
+                    home_team_name = (
+                        g.get_home_team()["city"].iloc[0]
+                        + " "
+                        + g.get_home_team()["name"].iloc[0]
+                    )
+                    home_team_id = g.get_home_team()["team_id"].iloc[0]
+                    away_team_name = (
+                        g.get_away_team()["city"].iloc[0]
+                        + " "
+                        + g.get_away_team()["name"].iloc[0]
+                    )
+                    away_team_id = g.get_away_team()["team_id"].iloc[0]
+                    if home_team_id in team_ids:
+                        team_ids.pop(team_ids.index(home_team_id))
+                        team_data.append([home_team_id, home_team_name])
+                    if away_team_id in team_ids:
+                        team_ids.pop(team_ids.index(away_team_id))
+                        team_data.append([away_team_id, away_team_name])
+
+                self.teams = (
+                    pd.DataFrame(data=team_data, columns=["team_id", "team_name"])
+                    .sort_values("team_name")
+                    .reset_index(drop=True)
+                )
+                self.teams.to_feather(file_name)
+
+        return self.teams
+
+    def get_players(self, qc=False):
+        """Get all players and player IDs from game data and save it."""
+        if self.players is None:
+
+            file_name = join(self.league_info_path, "players.feather")
+            # Check if file already exists
+            if Path(file_name).is_file():
+                self.players = pd.read_feather(file_name)
+
+            # Compile data if file does not already exist
+            else:
+                player_ids = [int(x) for x in list(self.get_games()) if x.isdigit()]
+                player_data = []
+                for i, row in self.get_game_info(override=False).iterrows():
+                    # Get games until all teams have been found
+                    if len(player_ids) == 0:
+                        break
+                    g = Game(game_url=row["url"])
+                    home_team_player_ids = g.get_home_roster()["id"].values.tolist()
+                    away_team_player_ids = g.get_away_roster()["id"].values.tolist()
+                    home_team_ids = [
+                        g.get_home_team()["team_id"].iloc[0]
+                        for _ in home_team_player_ids
+                    ]
+                    away_team_ids = [
+                        g.get_away_team()["team_id"].iloc[0]
+                        for _ in away_team_player_ids
+                    ]
+                    home_team_player_names = (
+                        g.get_home_roster()
+                        .assign(
+                            player_name=lambda x: x["last_name"]
+                            .str.strip()
+                            .str.capitalize()
+                            + ", "
+                            + x["first_name"].str.strip().str.capitalize()
+                        )["player_name"]
+                        .values.tolist()
+                    )
+                    away_team_player_names = (
+                        g.get_away_roster()
+                        .assign(
+                            player_name=lambda x: x["last_name"]
+                            .str.strip()
+                            .str.capitalize()
+                            + ", "
+                            + x["first_name"].str.strip().str.capitalize()
+                        )["player_name"]
+                        .values.tolist()
+                    )
+                    for pid, pname, teamid in zip(
+                        home_team_player_ids + away_team_player_ids,
+                        home_team_player_names + away_team_player_names,
+                        home_team_ids + away_team_ids,
+                    ):
+                        if pid in player_ids:
+                            player_ids.pop(player_ids.index(pid))
+                            player_data.append([pid, pname, teamid])
+
+                self.players = (
+                    pd.DataFrame(
+                        data=player_data,
+                        columns=["player_id", "player_name", "team_id"],
+                    )
+                    .sort_values("player_name")
+                    .reset_index(drop=True)
+                )
+                self.players.to_feather(file_name)
+
+        return self.players
 
     def visual_field_heatmap_horizontal(
         self,
