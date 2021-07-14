@@ -553,7 +553,7 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=height - 32,
+            height=height - 34,
             width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
@@ -562,7 +562,7 @@ class Season:
             font_family="TW Cen MT",
             hoverlabel_font_family="TW Cen MT",
             # Set margins
-            margin=dict(t=0, b=20, l=0, r=0, autoexpand=False),
+            margin=dict(t=0, b=21, l=0, r=0, autoexpand=False),
         )
 
         # Text to show on hover
