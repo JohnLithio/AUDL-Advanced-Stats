@@ -418,7 +418,7 @@ class Season:
         )
 
         # Set layout properties
-        height = 500
+        height = 530
         left_margin = 40
         fighm.update_layout(
             # Remove axis titles
@@ -553,7 +553,7 @@ class Season:
                 fixedrange=True,
             ),
             # # Set figure size
-            height=height - 30,
+            height=height - 32,
             width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
