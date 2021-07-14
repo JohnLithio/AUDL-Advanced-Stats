@@ -881,7 +881,7 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hy = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
+        hovertext_hy = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
         fighy.update_traces(hovertemplate=hovertext_hy)
 
         hxratio = df.groupby(["x_cut_final"])["count"].sum().max()
@@ -935,7 +935,7 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hx = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
+        hovertext_hx = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
         fighx.update_traces(hovertemplate=hovertext_hx)
 
         return fighm, fighx, fighy
