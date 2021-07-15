@@ -1112,9 +1112,21 @@ class Season:
             vertical_spacing=0,
             horizontal_spacing=0,
         )
-        fig.add_trace(go.Heatmap(fighm.data[0]), row=2, col=1)
-        fig.add_trace(go.Histogram(fighx.data[0]), row=2, col=2)
-        fig.add_trace(go.Histogram(fighy.data[0]), row=1, col=1)
+        if len(fighm.data) > 0:
+            fighmdata = fighm.data[0]
+        else:
+            fighmdata = None
+        if len(fighx.data) > 0:
+            fighxdata = fighx.data[0]
+        else:
+            fighxdata = None
+        if len(fighy.data) > 0:
+            fighydata = fighy.data[0]
+        else:
+            fighydata = None
+        fig.add_trace(go.Heatmap(fighmdata), row=2, col=1)
+        fig.add_trace(go.Histogram(fighxdata), row=2, col=2)
+        fig.add_trace(go.Histogram(fighydata), row=1, col=1)
         left_margin = 40
         fig.update_layout(
             # Transparent background
@@ -1284,9 +1296,21 @@ class Season:
             vertical_spacing=0,
             horizontal_spacing=0,
         )
-        fig.add_trace(go.Heatmap(fighm.data[0]), row=2, col=1)
-        fig.add_trace(go.Histogram(fighx.data[0]), row=2, col=2)
-        fig.add_trace(go.Histogram(fighy.data[0]), row=1, col=1)
+        if len(fighm.data) > 0:
+            fighmdata = fighm.data[0]
+        else:
+            fighmdata = None
+        if len(fighx.data) > 0:
+            fighxdata = fighx.data[0]
+        else:
+            fighxdata = None
+        if len(fighy.data) > 0:
+            fighydata = fighy.data[0]
+        else:
+            fighydata = None
+        fig.add_trace(go.Heatmap(fighmdata), row=2, col=1)
+        fig.add_trace(go.Histogram(fighxdata), row=2, col=2)
+        fig.add_trace(go.Histogram(fighydata), row=1, col=1)
         left_margin = 40
         fig.update_layout(
             # Transparent background
