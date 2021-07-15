@@ -347,6 +347,7 @@ class Season:
         remove_ob_pull=False,
         throw=True,
         team_ids=None,
+        opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
     ):
@@ -364,6 +365,8 @@ class Season:
         # Run through initial filters
         if team_ids is not None:
             df = df.loc[df["team_id"].isin(team_ids)]
+        if opposing_team_ids is not None:
+            df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
             df = df.loc[df[f"r{suffix}"].isin(player_ids)]
         if game_ids is not None:
@@ -714,6 +717,7 @@ class Season:
         remove_ob_pull=False,
         throw=True,
         team_ids=None,
+        opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
     ):
@@ -731,6 +735,8 @@ class Season:
         # Run through initial filters
         if team_ids is not None:
             df = df.loc[df["team_id"].isin(team_ids)]
+        if opposing_team_ids is not None:
+            df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
             df = df.loc[df[f"r{suffix}"].isin(player_ids)]
         if game_ids is not None:
