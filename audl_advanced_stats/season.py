@@ -353,18 +353,6 @@ class Season:
         """View frequency of possession, scores, turns on the field, similar to shot chart."""
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
 
-        # Run through initial filters
-        if team_ids is not None:
-            df = df.loc[df["team_id"].isin(team_ids)]
-        if player_ids is not None:
-            df = df.loc[df["player_id"].isin(player_ids)]
-        if game_ids is not None:
-            df = df.loc[df["game_id"].isin(game_ids)]
-        if remove_ob_pull:
-            df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
-        if o_point is None:
-            o_point = "o_point"
-
         # Set whether heat map should be for the throw or the catch
         if throw:
             suffix = ""
@@ -372,6 +360,18 @@ class Season:
         else:
             suffix = "_after"
             opposite_suffix = ""
+
+        # Run through initial filters
+        if team_ids is not None:
+            df = df.loc[df["team_id"].isin(team_ids)]
+        if player_ids is not None:
+            df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+        if game_ids is not None:
+            df = df.loc[df["game_id"].isin(game_ids)]
+        if remove_ob_pull:
+            df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
+        if o_point is None:
+            o_point = "o_point"
 
         # x_cut and y_cut are coordinates that are
         # the square where the throw came from if throw=False and the
@@ -720,18 +720,6 @@ class Season:
         """View frequency of possession, scores, turns on the field, similar to shot chart."""
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
 
-        # Run through initial filters
-        if team_ids is not None:
-            df = df.loc[df["team_id"].isin(team_ids)]
-        if player_ids is not None:
-            df = df.loc[df["player_id"].isin(player_ids)]
-        if game_ids is not None:
-            df = df.loc[df["game_id"].isin(game_ids)]
-        if remove_ob_pull:
-            df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
-        if o_point is None:
-            o_point = "o_point"
-
         # Set whether heat map should be for the throw or the catch
         if throw:
             suffix = ""
@@ -739,6 +727,18 @@ class Season:
         else:
             suffix = "_after"
             opposite_suffix = ""
+
+        # Run through initial filters
+        if team_ids is not None:
+            df = df.loc[df["team_id"].isin(team_ids)]
+        if player_ids is not None:
+            df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+        if game_ids is not None:
+            df = df.loc[df["game_id"].isin(game_ids)]
+        if remove_ob_pull:
+            df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
+        if o_point is None:
+            o_point = "o_point"
 
         # x_cut and y_cut are coordinates that are
         # the square where the throw came from if throw=False and the
