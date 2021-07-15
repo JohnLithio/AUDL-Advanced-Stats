@@ -343,6 +343,18 @@ class Season:
         metric,
         x_cut=None,
         y_cut=None,
+        x_min=-27,
+        x_max=27,
+        y_min=0,
+        y_max=120,
+        xyards_min=-60,
+        xyards_max=60,
+        yyards_min=-120,
+        yyards_max=120,
+        yards_min=0,
+        yards_max=300,
+        zmin=None,
+        zmax=None,
         o_point=None,
         remove_ob_pull=False,
         throw=True,
@@ -363,6 +375,18 @@ class Season:
             opposite_suffix = ""
 
         # Run through initial filters
+        df = (
+            df.query(f"x{suffix} >= {x_min}")
+            .query(f"x{suffix} <= {x_max}")
+            .query(f"y{suffix} >= {y_min}")
+            .query(f"y{suffix} <= {y_max}")
+            .query(f"xyards_raw >= {xyards_min}")
+            .query(f"xyards_raw <= {xyards_max}")
+            .query(f"yyards_raw >= {yyards_min}")
+            .query(f"yyards_raw <= {yyards_max}")
+            .query(f"yards_raw >= {yards_min}")
+            .query(f"yards_raw <= {yards_max}")
+        )
         if team_ids is not None:
             df = df.loc[df["team_id"].isin(team_ids)]
         if opposing_team_ids is not None:
@@ -459,25 +483,14 @@ class Season:
         )
 
         # Set additional args depending on inputs
-        # TODO: Do this for yardages too?
         kwargs = dict(reversescale=False)
         if metric == "pct":
             kwargs["colorbar_tickformat"] = ".0%"
-            if outcome_measure == "throw_outcome":
-                if outcome == "Completion":
-                    kwargs["zmin"] = 0.8
-                    kwargs["zmax"] = 1.0
-                elif outcome == "Turnover":
-                    kwargs["zmin"] = 0.0
-                    kwargs["zmax"] = 0.2
-            elif outcome_measure == "possession_outcome_general":
-                if outcome == "Score":
-                    kwargs["zmin"] = 0.2
-                    kwargs["zmax"] = 1.0
-                elif outcome == "Turnover":
-                    kwargs["zmin"] = 0.0
-                    kwargs["zmax"] = 0.8
-
+            if (zmin is None) or (zmax is None):
+                kwargs["zauto"] = True
+            else:
+                kwargs["zmin"] = zmin
+                kwargs["zmax"] = zmax
         elif metric == "count":
             kwargs["zauto"] = True
             kwargs["colorbar_tickformat"] = ".0,"
@@ -713,6 +726,18 @@ class Season:
         metric,
         x_cut=None,
         y_cut=None,
+        x_min=-27,
+        x_max=27,
+        y_min=0,
+        y_max=120,
+        xyards_min=-60,
+        xyards_max=60,
+        yyards_min=-120,
+        yyards_max=120,
+        yards_min=0,
+        yards_max=300,
+        zmin=None,
+        zmax=None,
         o_point=None,
         remove_ob_pull=False,
         throw=True,
@@ -733,6 +758,18 @@ class Season:
             opposite_suffix = ""
 
         # Run through initial filters
+        df = (
+            df.query(f"x{suffix} >= {x_min}")
+            .query(f"x{suffix} <= {x_max}")
+            .query(f"y{suffix} >= {y_min}")
+            .query(f"y{suffix} <= {y_max}")
+            .query(f"xyards_raw >= {xyards_min}")
+            .query(f"xyards_raw <= {xyards_max}")
+            .query(f"yyards_raw >= {yyards_min}")
+            .query(f"yyards_raw <= {yyards_max}")
+            .query(f"yards_raw >= {yards_min}")
+            .query(f"yards_raw <= {yards_max}")
+        )
         if team_ids is not None:
             df = df.loc[df["team_id"].isin(team_ids)]
         if opposing_team_ids is not None:
@@ -829,25 +866,14 @@ class Season:
         )
 
         # Set additional args depending on inputs
-        # TODO: Do this for yardages too?
         kwargs = dict(reversescale=False)
         if metric == "pct":
             kwargs["colorbar_tickformat"] = ".0%"
-            if outcome_measure == "throw_outcome":
-                if outcome == "Completion":
-                    kwargs["zmin"] = 0.8
-                    kwargs["zmax"] = 1.0
-                elif outcome == "Turnover":
-                    kwargs["zmin"] = 0.0
-                    kwargs["zmax"] = 0.2
-            elif outcome_measure == "possession_outcome_general":
-                if outcome == "Score":
-                    kwargs["zmin"] = 0.2
-                    kwargs["zmax"] = 1.0
-                elif outcome == "Turnover":
-                    kwargs["zmin"] = 0.0
-                    kwargs["zmax"] = 0.8
-
+            if (zmin is None) or (zmax is None):
+                kwargs["zauto"] = True
+            else:
+                kwargs["zmin"] = zmin
+                kwargs["zmax"] = zmax
         elif metric == "count":
             kwargs["zauto"] = True
             kwargs["colorbar_tickformat"] = ".0,"
