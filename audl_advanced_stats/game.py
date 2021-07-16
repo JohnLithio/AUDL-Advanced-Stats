@@ -1499,14 +1499,6 @@ class Game:
                 layer="below",
             )
 
-        # Show info about o-point/d-point
-        # Mark the end of periods and give option to mark timeouts and injuries
-        # Align another graph on the x-axis that shows that scoring progression?
-        # On hover, show start and end time of possession, total time, outcome, possession numbers, player stats?
-        #     player stats could be completions, receptions, yards, Ds, whether they scored
-        # TODO: Option for 2 clusters instead of 3?
-        # TODO: Change colors
-        # TODO: Try annotating graph to label O, D1, D2
         return fig
 
     def visual_possession_map_horizontal(self, possession_number, home=True):
