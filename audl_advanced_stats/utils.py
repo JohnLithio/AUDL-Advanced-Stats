@@ -3,9 +3,9 @@ from os.path import basename, join
 from sqlite3 import Error
 
 
-def get_database_path(database_path="data"):
+def get_data_path(data_path="data"):
     """Return the file path to the SQLite database."""
-    return database_path
+    return data_path
 
 
 def get_json_path(database_path, folder):
