@@ -64,23 +64,30 @@ class Game:
         self.game_file_name = self.get_game_name() + ".json"
         return self.game_file_name
 
-    def get_response(self):
+    def get_response(self, upload=False):
         """Get the response of a single game and save it.
 
         Returns:
             str: The json response string.
 
         """
+        print("getting response")
         if self.response is None:
-            # Get stored response if possible.
-            try:
-                with open(join(self.json_path, self.get_game_file_name()), "r") as f:
+            json_path = join(self.json_path, self.get_game_file_name())
+            # If file doesn't exist locally, try to retrieve it from AWS
+            if not Path(json_path).is_file():
+                download_from_bucket(json_path)
+
+            # If events have already been processed and saved, load them
+            if Path(json_path).is_file():
+                with open(json_path, "r") as f:
                     response_text = f.read()
-            # If file does not exist, get response from url and save it.
-            except FileNotFoundError:
+            else:
                 response_text = requests.get(self.game_url).text
-                with open(join(self.json_path, self.game_file_name), "w") as f:
+                with open(json_path, "w") as f:
                     f.write(response_text)
+                if upload:
+                    upload_to_bucket(json_path)
 
             # Parse the json response
             response = loads(response_text)
@@ -92,7 +99,9 @@ class Game:
     def get_game_info(self):
         """Get dataframe of basic game info."""
         if self.game_info is None:
-            df = pd.DataFrame.from_records([self.get_response()["game"]]).drop(
+            df = pd.DataFrame.from_records(
+                [self.get_response(upload=True)["game"]]
+            ).drop(
                 columns=[
                     "score_times_home",
                     "score_times_away",
@@ -122,12 +131,12 @@ class Game:
             events_str = "tsgAway"
 
         assert (
-            self.get_response()[events_str] is not None
+            self.get_response(upload=True)[events_str] is not None
         ), "Events not available for this game."
 
         # Get the events
         events = literal_eval(
-            self.get_response()[events_str]["events"]
+            self.get_response(upload=True)[events_str]["events"]
             .replace("true", "True")
             .replace("false", "False")
         )
@@ -162,7 +171,7 @@ class Game:
         else:
             team_str = "away"
 
-        team_raw = self.get_response()["game"][f"team_season_{team_str}"]
+        team_raw = self.get_response(upload=True)["game"][f"team_season_{team_str}"]
 
         # Convert to dataframe and un-nest dicts
         team = (
@@ -200,7 +209,7 @@ class Game:
             roster_str = "Away"
 
         # Get list of dicts of roster
-        roster_raw = self.get_response()[f"rosters{roster_str}"]
+        roster_raw = self.get_response(upload=True)[f"rosters{roster_str}"]
 
         # Convert to dataframe and un-nest dicts
         roster = (
