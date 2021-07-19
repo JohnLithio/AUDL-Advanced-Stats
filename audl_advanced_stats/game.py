@@ -11,14 +11,15 @@ from pathlib import Path
 from sklearn.cluster import KMeans, Birch
 from .constants import *
 from .utils import (
-    get_database_path,
+    get_data_path,
     get_json_path,
-    create_connection,
+    upload_to_bucket,
+    download_from_bucket,
 )
 
 
 class Game:
-    def __init__(self, game_url, year=CURRENT_YEAR, database_path="data"):
+    def __init__(self, game_url, year=CURRENT_YEAR, data_path="data"):
         """Initial parameters of game data.
 
         Args:
@@ -26,22 +27,20 @@ class Game:
             year (int, optional): Season to get stats from. Currently not used because there are only
                 advanced stats for a single season (2021).
                 Defaults to CURRENT_YEAR.
-            database_path (str, optional): The path to the folder where data
+            data_path (str, optional): The path to the folder where data
                 will be stored.
 
         """
         # Inputs
         self.year = year
         self.game_url = game_url
-        self.database_path = get_database_path(database_path)
-        self.json_path = get_json_path(database_path, "games_raw")
-        self.events_path = get_json_path(database_path, "games_processed")
+        self.data_path = get_data_path(data_path)
+        self.json_path = get_json_path(self.data_path, "games_raw")
+        self.events_path = get_json_path(self.data_path, "games_processed")
 
-        # Create directories/databases if they don't exist
+        # Create directories if they don't exist
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
         Path(self.events_path).mkdir(parents=True, exist_ok=True)
-        conn = create_connection(self.database_path)
-        conn.close()
 
         # Game info
         self.response = None
@@ -816,7 +815,7 @@ class Game:
 
         return df
 
-    def events_print_qc(self, df, qc=True):
+    def events_print_qc(self, df, qc=False):
         """Print basic QC info about the processed events data."""
         if qc:
             print("Number of events:", df.shape[0])
@@ -840,9 +839,13 @@ class Game:
             f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather"
         )
 
-    def get_events(self, home=True, qc=True):
+    def get_events(self, home=True, upload=False, qc=False):
         """Process the events for a single team to get yardage, event labels, etc."""
         events_file_name = join(self.events_path, self.get_events_filename(home=home),)
+        # If file doesn't exist locally, try to retrieve it from AWS
+        if not Path(events_file_name).is_file():
+            download_from_bucket(events_file_name)
+
         # If events have already been processed and saved, load them
         if Path(events_file_name).is_file():
             df = pd.read_feather(events_file_name)
@@ -874,19 +877,21 @@ class Game:
                 .rename(columns=lambda x: str(x))
             )
             df.to_feather(events_file_name)
+            if upload:
+                upload_to_bucket(events_file_name)
 
         return df
 
-    def get_home_events(self, qc=True):
+    def get_home_events(self, upload=False, qc=False):
         """Get processed dataframe of home team events."""
         if self.home_events is None:
-            self.home_events = self.get_events(home=True, qc=qc)
+            self.home_events = self.get_events(home=True, upload=upload, qc=qc)
         return self.home_events
 
-    def get_away_events(self, qc=True):
+    def get_away_events(self, upload=False, qc=False):
         """Get processed dataframe of away team events."""
         if self.away_events is None:
-            self.away_events = self.get_events(home=False, qc=qc)
+            self.away_events = self.get_events(home=False, upload=upload, qc=qc)
         return self.away_events
 
     def total_time_to_readable(self, time):
@@ -902,7 +907,7 @@ class Game:
             + seconds.astype(int).astype(str).str.zfill(2)
         )
 
-    def team_player_clusters(self, times, qc=True):
+    def team_player_clusters(self, times, qc=False):
         """Separate team into 3 clusters (O, D1, D2) based on points played together."""
         # Get all unique segments in the game and label them from 0 to n
         segments = (
@@ -1194,7 +1199,7 @@ class Game:
 
         return fig
 
-    def visual_game_flow(self, color="point_outcome", home=True, qc=True):
+    def visual_game_flow(self, color="point_outcome", home=True, qc=False):
         """Gantt chart showing the substitution patterns of a team throughout 1 game."""
         # Monkey patch for plotly so that we don't need to use datetimes for x-axis of gantt
         def my_process_dataframe_timeline(args):
