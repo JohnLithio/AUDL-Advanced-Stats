@@ -1,3 +1,5 @@
+import boto3
+import botocore
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -7,43 +9,42 @@ import sqlite3
 from ast import literal_eval
 from bs4 import BeautifulSoup
 from json import loads
+from os import environ
 from os.path import basename, join
 from pathlib import Path
 from plotly.subplots import make_subplots
 from re import search
 from .constants import *
 from .game import Game
-from .utils import get_database_path, get_json_path, get_games_path, create_connection
+from .utils import get_data_path, get_json_path, get_games_path, create_connection
 
 
 class Season:
     """This class contains methods for retrieving all of the advanced AUDL stats for a single season."""
 
-    def __init__(self, year=CURRENT_YEAR, database_path="data"):
+    def __init__(self, year=CURRENT_YEAR, data_path="data"):
         """Initialize parameters of season data.
 
         Args:
             year (int, optional): Season to get stats from. Currently not used because there are only
                 advanced stats for a single season (2021).
                 Defaults to CURRENT_YEAR.
-            database_path (str, optional): The path to the folder where data
+            data_path (str, optional): The path to the folder where data
                 will be stored.
 
         """
         # Inputs
         self.year = year
-        self.database_path = get_database_path(database_path)
-        self.json_path = get_json_path(database_path, "games")
-        self.games_path = get_games_path(database_path, "all_games")
-        self.league_info_path = get_games_path(database_path, "league_info")
+        self.data_path = get_data_path(data_path)
+        self.json_path = get_json_path(self.data_path, "games_raw")
+        self.games_path = get_games_path(self.data_path, "all_games")
+        self.league_info_path = get_games_path(self.data_path, "league_info")
 
-        # Create directories/databases if they don't exist
-        Path(self.database_path).mkdir(parents=True, exist_ok=True)
+        # Create directories if they don't exist
+        Path(self.data_path).mkdir(parents=True, exist_ok=True)
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
         Path(self.games_path).mkdir(parents=True, exist_ok=True)
         Path(self.league_info_path).mkdir(parents=True, exist_ok=True)
-        conn = create_connection(self.database_path)
-        conn.close()
 
         # URLs to retrieve data from
         self.schedule_url = SCHEDULE_URL
@@ -74,26 +75,32 @@ class Season:
 
         return self.weeks_urls
 
-    def get_game_info(self, override=False):
+    def get_game_info(self, override=False, upload=False):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
         if self.game_info is None:
-            # Check if games already exist in DB
-            retrieved_games = False
-            try:
-                query = """
-                select *
-                from games
-                """
-                conn = create_connection(self.database_path)
-                df = pd.read_sql(sql=query, con=conn)
-                conn.close()
-                retrieved_games = True
-            except:
-                conn.close()
+            # If file doesn't exists locally, try to retrieve it from AWS
+            game_info_path = join(self.league_info_path, "game_info.feather")
+            if not Path(game_info_path).is_file() and not override:
+                try:
+                    s3 = boto3.resource(
+                        "s3",
+                        aws_access_key_id=environ["AWS_ACCESS_KEY_ID"],
+                        aws_secret_access_key=environ["AWS_SECRET_ACCESS_KEY"],
+                    )
+                    s3.Bucket(AWS_BUCKET_NAME).download_file(
+                        game_info_path.replace("\\", "/"),
+                        game_info_path.replace("\\", "/"),
+                    )
+                except botocore.exceptions.ClientError as e:
+                    if e.response["Error"]["Code"] == "404":
+                        # If we end up here, it means the file does not exist on AWS
+                        pass
 
-            # Retrieve games from website if they are not in DB or override is True
-            if not retrieved_games or override:
-                # Get all games in all weeks
+            # If file exists locally, load it
+            if Path(game_info_path).is_file() and not override:
+                df = pd.read_feather(game_info_path)
+
+            else:
                 games = []
                 for week_url in self.get_weeks_urls():
                     # Get schedule for 1 week
@@ -109,30 +116,38 @@ class Season:
                         )
                         games.append(game_url)
 
-                    # Parse URLs to get game info
-                    game_list = [
-                        [
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
-                            x,
-                        ]
-                        for x in sorted(games)
+                # Parse URLs to get game info
+                game_list = [
+                    [
+                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
+                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
+                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
+                        x,
                     ]
+                    for x in sorted(games)
+                ]
 
-                    # Save info to database table
-                    df = (
-                        pd.DataFrame(
-                            data=game_list,
-                            columns=["game_date", "away_team", "home_team", "url"],
-                        )
-                        .drop_duplicates()
-                        .reset_index(drop=True)
+                # Save info to file
+                df = (
+                    pd.DataFrame(
+                        data=game_list,
+                        columns=["game_date", "away_team", "home_team", "url"],
                     )
-                    conn = create_connection(self.database_path)
-                    df.to_sql("games", con=conn, if_exists="replace", index=False)
-                    conn.commit()
-                    conn.close()
+                    .drop_duplicates()
+                    .reset_index(drop=True)
+                )
+                df.to_feather(game_info_path)
+
+            if upload:
+                s3 = boto3.resource(
+                    "s3",
+                    aws_access_key_id=environ["AWS_ACCESS_KEY_ID"],
+                    aws_secret_access_key=environ["AWS_SECRET_ACCESS_KEY"],
+                )
+                s3.Bucket(AWS_BUCKET_NAME).upload_file(
+                    game_info_path.replace("\\", "/"),
+                    game_info_path.replace("\\", "/"),
+                )
 
             self.game_info = df
 

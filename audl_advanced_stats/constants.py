@@ -1,3 +1,4 @@
+AWS_BUCKET_NAME = "audl-heroku-data"
 CURRENT_YEAR = 2021
 SCHEDULE_URL = "https://theaudl.com/league/schedule"
 STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
