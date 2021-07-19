@@ -7,7 +7,7 @@ from .constants import *
 
 
 def get_data_path(data_path="data"):
-    """Return the file path to the SQLite database."""
+    """Return the file path to the data folder."""
     return data_path
 
 
