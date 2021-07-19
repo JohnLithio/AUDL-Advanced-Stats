@@ -71,7 +71,6 @@ class Game:
             str: The json response string.
 
         """
-        print("getting response")
         if self.response is None:
             json_path = join(self.json_path, self.get_game_file_name())
             # If file doesn't exist locally, try to retrieve it from AWS
