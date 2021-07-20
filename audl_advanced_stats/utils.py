@@ -55,7 +55,7 @@ def download_from_bucket(file_path):
             s3.Bucket(AWS_BUCKET_NAME).download_file(
                 file_path.replace("\\", "/"), file_path.replace("\\", "/"),
             )
-        except PermissionError as e:
+        except (PermissionError, FileExistsError) as e:
             if not Path(file_path).is_file():
                 time.sleep(1)
                 s3.Bucket(AWS_BUCKET_NAME).download_file(
