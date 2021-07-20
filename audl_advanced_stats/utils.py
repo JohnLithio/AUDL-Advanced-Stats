@@ -1,8 +1,10 @@
 import boto3
 import botocore
+import time
 from os import environ
 from os import environ, makedirs
 from os.path import join, exists, dirname, relpath, basename
+from pathlib import Path
 from .constants import *
 
 
@@ -49,9 +51,16 @@ def download_from_bucket(file_path):
             aws_access_key_id=environ["AWS_ACCESS_KEY_ID"],
             aws_secret_access_key=environ["AWS_SECRET_ACCESS_KEY"],
         )
-        s3.Bucket(AWS_BUCKET_NAME).download_file(
-            file_path.replace("\\", "/"), file_path.replace("\\", "/"),
-        )
+        try:
+            s3.Bucket(AWS_BUCKET_NAME).download_file(
+                file_path.replace("\\", "/"), file_path.replace("\\", "/"),
+            )
+        except PermissionError as e:
+            if not Path(file_path).is_file():
+                time.sleep(1)
+                s3.Bucket(AWS_BUCKET_NAME).download_file(
+                    file_path.replace("\\", "/"), file_path.replace("\\", "/"),
+                )
         return True
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "404":
