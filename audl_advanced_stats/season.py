@@ -106,21 +106,40 @@ class Season:
                         games.append(game_url)
 
                 # Parse URLs to get game info
-                game_list = [
-                    [
-                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
-                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
-                        search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
-                        x,
-                    ]
-                    for x in sorted(games)
-                ]
+                game_list = []
+                for x in sorted(games):
+                    game_response = Game(game_url=x).get_response(upload=True)
+                    if game_response is None:
+                        game_exists = False
+                    else:
+                        tsghome = game_response.get("tsgHome", dict())
+                        if tsghome is None:
+                            game_exists = False
+                        elif tsghome.get("events", None) is not None:
+                            game_exists = True
+                        else:
+                            game_exists = False
+                    game_list.append(
+                        [
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
+                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
+                            x,
+                            game_exists,
+                        ]
+                    )
 
                 # Save info to file
                 df = (
                     pd.DataFrame(
                         data=game_list,
-                        columns=["game_date", "away_team", "home_team", "url"],
+                        columns=[
+                            "game_date",
+                            "away_team",
+                            "home_team",
+                            "url",
+                            "events_exist",
+                        ],
                     )
                     .drop_duplicates()
                     .reset_index(drop=True)
