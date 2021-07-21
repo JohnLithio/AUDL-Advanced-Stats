@@ -302,7 +302,7 @@ class Game:
                 # Sometimes both a throwaway and drop are recorded, so we ignore one of these
                 possession_change=lambda x: x["t"]
                 .shift(1)
-                .isin([5, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27])
+                .isin([5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27])
                 & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
                 # Label each possession incrementally
                 possession_number=lambda x: np.where(
@@ -312,16 +312,20 @@ class Game:
                 ),
                 # Set the outcome of each point and possession
                 point_outcome=lambda x: np.where(
-                    x["t"].isin([21, 22,]), x["t"].map(EVENT_TYPES), None,
+                    x["t"].isin([6, 7, 21, 22,]), x["t"].map(EVENT_TYPES), None,
                 ),
                 possession_outcome=lambda x: np.where(
-                    x["t"].isin([5, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,])
+                    x["t"].isin(
+                        [5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,]
+                    )
                     & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
                     x["t"].map(EVENT_TYPES),
                     None,
                 ),
                 possession_outcome_general=lambda x: np.where(
-                    x["t"].isin([5, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,])
+                    x["t"].isin(
+                        [5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,]
+                    )
                     & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
                     x["t"].map(EVENT_TYPES_GENERAL),
                     None,
@@ -377,15 +381,23 @@ class Game:
             # Mark whether each point was a hold, break, or neither
             .assign(
                 point_hold=lambda x: np.where(
-                    (x["point_outcome"] == EVENT_TYPES[22]) & (x["o_point"]),
+                    (
+                        (x["point_outcome"] == EVENT_TYPES[22])
+                        | (x["point_outcome"] == EVENT_TYPES[6])
+                    )
+                    & (x["o_point"]),
                     "Hold",
-                    "End of Quarter",
+                    "End of Period",
                 ),
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
                 point_hold=lambda x: np.where(
-                    (x["point_outcome"] == EVENT_TYPES[21]) & (~x["o_point"]),
+                    (
+                        (x["point_outcome"] == EVENT_TYPES[21])
+                        | (x["point_outcome"] == EVENT_TYPES[7])
+                    )
+                    & (~x["o_point"]),
                     "Opponent Hold",
                     x["point_hold"],
                 ),
@@ -393,14 +405,22 @@ class Game:
             # Mark whether each point was a hold, break, or neither
             .assign(
                 point_hold=lambda x: np.where(
-                    (x["point_outcome"] == EVENT_TYPES[22]) & (~x["o_point"]),
+                    (
+                        (x["point_outcome"] == EVENT_TYPES[22])
+                        | (x["point_outcome"] == EVENT_TYPES[6])
+                    )
+                    & (~x["o_point"]),
                     "Break",
                     x["point_hold"],
                 ),
             )
             .assign(
                 point_hold=lambda x: np.where(
-                    (x["point_outcome"] == EVENT_TYPES[21]) & (x["o_point"]),
+                    (
+                        (x["point_outcome"] == EVENT_TYPES[21])
+                        | (x["point_outcome"] == EVENT_TYPES[7])
+                    )
+                    & (x["o_point"]),
                     "Opponent Break",
                     x["point_hold"],
                 ),
@@ -533,7 +553,7 @@ class Game:
     def get_events_yardage(self, df):
         # Get the x,y position for the next throwaway, travel, defensive foul, drop, completion, or score
         next_event = (
-            df.query("t==[8,10,12,17,19,20,22]")
+            df.query("t==[7,8,10,12,17,19,20,22]")
             .groupby(["possession_number"])[["r", "x", "y", "t", "event_name"]]
             .shift(-1)
             .rename(columns=lambda x: x + "_after")
@@ -562,7 +582,7 @@ class Game:
                 # Calculate the total distance of the throw, excluding yards in the endzone
                 yards=lambda x: (x["xyards"].pow(2) + x["yyards"].pow(2)).pow(0.5),
                 throw_outcome=lambda x: np.where(
-                    x["t_after"].isin([8, 17, 19]), "Turnover", None
+                    x["t_after"].isin([7, 8, 17, 19]), "Turnover", None
                 ),
             )
             .assign(
@@ -623,6 +643,12 @@ class Game:
                     x["period"].isin([1, 2, 3, 4]),
                     -x["s"] + (x["period"]) * 60 * 12,
                     -x["s"] + 4 * 60 * 12 + (x["period"] - 4) * 60 * 5,
+                )
+            )
+            .assign(
+                # Some time stamps are negative, which seem to be the time elapsed from the start of the period
+                s_total=lambda x: np.where(
+                    x["s"] < 0, -x["s"] + (x["period"] - 1) * 60 * 12, x["s_total"],
                 )
             )
             .assign(
@@ -747,6 +773,13 @@ class Game:
             "",
         )
 
+        # Callahan caught
+        df["play_description"] = np.where(
+            df["t_after"].isin([6,]),
+            "Score: " + df["r"].map(player_names) + " Callahan",
+            df["play_description"],
+        )
+
         # Score
         df["play_description"] = np.where(
             df["t_after"].isin([22,]),
@@ -786,6 +819,19 @@ class Game:
             + " for<br>"
             + df["yyards"].round(0).fillna(0).astype(int).astype(str)
             + " yards thrown away",
+            df["play_description"],
+        )
+
+        # Callahan thrown
+        df["play_description"] = np.where(
+            df["t_after"].isin([7,]),
+            "Turnover: "
+            + df["r"].map(player_names)
+            + " "
+            + df["throw_type"]
+            + " for<br>"
+            + df["yyards"].round(0).fillna(0).astype(int).astype(str)
+            + " yards thrown for Callahan",
             df["play_description"],
         )
 
@@ -1312,11 +1358,13 @@ class Game:
             "Opponent Break",
             "Opponent Hold",
             "Break",
-            "End of Quarter",
+            "End of Period",
         ]
         point_outcome_order = [
             "Score",
+            "Callahan",
             "Opponent Score",
+            "Opponent Callahan",
             "End of Period",
         ]
         o_point_order = [
