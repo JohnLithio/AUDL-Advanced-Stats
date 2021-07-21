@@ -787,6 +787,7 @@ class Season:
         opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
+        second_graph=False,
     ):
         """View frequency of possession, scores, turns on the field, similar to shot chart."""
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
@@ -817,7 +818,10 @@ class Season:
         if opposing_team_ids is not None:
             df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
-            df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+            if second_graph:
+                df = df.loc[df[f"r{opposite_suffix}"].isin(player_ids)]
+            else:
+                df = df.loc[df[f"r{suffix}"].isin(player_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
         if remove_ob_pull:
