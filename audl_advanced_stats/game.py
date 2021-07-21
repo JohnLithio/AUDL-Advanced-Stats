@@ -221,6 +221,7 @@ class Game:
                 suffixes=["", "_y"],
             )
             .drop(columns=["id_y", "player", "active"])
+            .drop_duplicates()
         )
 
         # Get active players
@@ -915,8 +916,66 @@ class Game:
             + seconds.astype(int).astype(str).str.zfill(2)
         )
 
-    def team_player_clusters(self, times, qc=False):
-        """Separate team into 3 clusters (O, D1, D2) based on points played together."""
+    def get_player_segments(self, roster, events, qc=False):
+        # Columns we'll keep for plotting
+        final_cols = [
+            "playerid",
+            "name",
+            "lastname",
+            "firstname",
+            "o_point",
+            "point_outcome",
+            "point_hold",
+            "num_turnovers",
+            "period",
+            "s_before_total",
+            "s_after_total",
+            "elapsed",
+            # "s_before_readable",
+            # "s_after_readable",
+        ]
+
+        # Get the points that each player was on the field and stack them so
+        #    that each player has their own row for every point they played
+        dfs = []
+        for i, player in roster.iterrows():
+            playerid = str(player["id"])
+            # Only get players who played in the game
+            if playerid in events:
+                df = (
+                    events.loc[events[playerid] == 1]
+                    .groupby(["period", "s_before", "s_after"])
+                    .head(1)
+                    .query("elapsed!=0")
+                    .assign(
+                        playerid=playerid,
+                        firstname=player["first_name"].strip(),
+                        lastname=player["last_name"].strip(),
+                        name=player["first_name"].strip()
+                        + " "
+                        + player["last_name"].strip(),
+                        period=lambda x: x["period"].astype(str),
+                    )
+                )
+                dfs.append(df)
+
+        # First time each player played in the game
+        firsttime = (
+            pd.concat(dfs)
+            .groupby("playerid")["s_before_total"]
+            .min()
+            .rename("firsttime")
+            .reset_index()
+        )
+
+        # Sort the players by when they first entered the game
+        times = (
+            pd.concat(dfs)
+            .merge(firsttime, how="left", on=["playerid"])
+            .sort_values("firsttime")[final_cols]
+            .reset_index(drop=True)
+        )
+
         # Get all unique segments in the game and label them from 0 to n
         segments = (
             times.groupby(["s_before_total", "s_after_total"])
@@ -937,6 +996,15 @@ class Game:
         )
         psegs.columns = psegs.columns.get_level_values(1)
 
+        if qc:
+            print(
+                "Segments w/o 7 players:", (psegs.sum() != 7).sum(),
+            )
+
+        return times, psegs
+
+    def get_player_clusters(self, times, psegs):
+        """Separate team into 3 clusters (O, D1, D2) based on points played together."""
         # Sort each player into 1 of 3 clusters based on which segments they played
         #    3 segments were chosen to mimic the common pattern of O, D1, and D2
         X = psegs.values
@@ -947,7 +1015,7 @@ class Game:
         psegs["cluster"] = [str(x) for x in cluster_model.labels_]
 
         # Combine the player time data with the clusters
-        times_cluster = times.merge(
+        player_clusters = times.merge(
             psegs.reset_index()[["playerid", "cluster"]], how="left", on=["playerid"]
         ).sort_values(["cluster"])
 
@@ -956,7 +1024,7 @@ class Game:
         #     First non-o-line group on the field=D1
         #     Remaining group=D2
         clusters = (
-            times_cluster.groupby(["playerid", "cluster"])
+            player_clusters.groupby(["playerid", "cluster"])
             .agg({"s_before_total": "min", "o_point": "sum"})
             .reset_index()
             .groupby(["cluster"])
@@ -968,15 +1036,15 @@ class Game:
 
         # Get the number of points each player played, which is used to sort players within each cluster
         playingtime = (
-            times_cluster.groupby("playerid")["elapsed"]
+            player_clusters.groupby("playerid")["elapsed"]
             .count()
             .rename("segment_count")
             .reset_index()
         )
 
         # Combine and sort the data
-        times_cluster = (
-            times_cluster.merge(
+        player_clusters = (
+            player_clusters.merge(
                 clusters, how="left", on=["cluster"], suffixes=["", "_c"]
             )
             .merge(playingtime, how="left", on=["playerid"])
@@ -1007,13 +1075,7 @@ class Game:
             .reset_index(drop=True)
         )
 
-        if qc:
-            print(
-                "Segments w/ >7 players:",
-                (psegs.drop(columns=["cluster"]).sum() > 7).sum(),
-            )
-
-        return times_cluster
+        return player_clusters
 
     def get_game_flow_margins(self):
         """Get the margin properties based on the length of player names."""
@@ -1237,70 +1299,14 @@ class Game:
             events = self.get_away_events(qc=False)
             roster = self.get_away_roster()
 
-        # Columns we'll keep for plotting
-        final_cols = [
-            "playerid",
-            "name",
-            "lastname",
-            "firstname",
-            "o_point",
-            "point_outcome",
-            "point_hold",
-            "num_turnovers",
-            "period",
-            "s_before_total",
-            "s_after_total",
-            "elapsed",
-            # "s_before_readable",
-            # "s_after_readable",
-        ]
-
-        # Get the points that each player was on the field and stack them so
-        #    that each player has their own row for every point they played
-        dfs = []
-        for i, player in roster.iterrows():
-            playerid = str(player["id"])
-            # Only get players who played in the game
-            if playerid in events:
-                df = (
-                    events.loc[events[playerid] == 1]
-                    .groupby(["period", "s_before", "s_after"])
-                    .head(1)
-                    .query("elapsed!=0")
-                    .assign(
-                        playerid=playerid,
-                        firstname=player["first_name"].strip(),
-                        lastname=player["last_name"].strip(),
-                        name=player["first_name"].strip()
-                        + " "
-                        + player["last_name"].strip(),
-                        period=lambda x: x["period"].astype(str),
-                    )
-                )
-                dfs.append(df)
-
-        # First time each player played in the game
-        firsttime = (
-            pd.concat(dfs)
-            .groupby("playerid")["s_before_total"]
-            .min()
-            .rename("firsttime")
-            .reset_index()
-        )
-
-        # Sort the players by when they first entered the game
-        times = (
-            pd.concat(dfs)
-            .merge(firsttime, how="left", on=["playerid"])
-            .sort_values("firsttime")[final_cols]
-            .reset_index(drop=True)
-        )
+        # Get the segments that each player played
+        times, psegs = self.get_player_segments(roster=roster, events=events, qc=qc)
 
         # Group players into O-line, D1, and D2
-        times_cluster = self.team_player_clusters(times, qc=qc)
+        player_clusters = self.get_player_clusters(times=times, psegs=psegs)
 
         # Get the order in which we want to show the players on the y-axis
-        name_order = times_cluster.groupby(["name"]).head(1)["name"].values
+        name_order = player_clusters.groupby(["name"]).head(1)["name"].values
         point_hold_order = [
             "Hold",
             "Opponent Break",
@@ -1341,7 +1347,7 @@ class Game:
         }
 
         # Add OT if there are events that take place beyond 4 quarters
-        if times_cluster["s_after_total"].max() > 4 * 12 * 60:
+        if player_clusters["s_after_total"].max() > 4 * 12 * 60:
             xticks[60 * 12 * 4 + 60 * 5 * 1] = "End of OT1"
 
         # Create second x-axis that is only for timeouts and injuries
@@ -1356,8 +1362,8 @@ class Game:
             x2ticks[row["s_total"]] = "Injury"
 
         # Add note about timeouts at the start of the segment
-        times_cluster["before_event"] = np.where(
-            times_cluster["s_before_total"].isin(
+        player_clusters["before_event"] = np.where(
+            player_clusters["s_before_total"].isin(
                 events.query("t==[14, 15]")["s_total"].unique()
             ),
             " (Timeout)",
@@ -1365,17 +1371,17 @@ class Game:
         )
 
         # Add note about injuries at the start of the segment
-        times_cluster["before_event"] = np.where(
-            times_cluster["s_before_total"].isin(
+        player_clusters["before_event"] = np.where(
+            player_clusters["s_before_total"].isin(
                 events.query("t==[42, 43]")["s_total"].unique()
             ),
             " (Injury)",
-            times_cluster["before_event"],
+            player_clusters["before_event"],
         )
 
         # Add note about timeouts at the end of the segment
-        times_cluster["after_event"] = np.where(
-            times_cluster["s_after_total"].isin(
+        player_clusters["after_event"] = np.where(
+            player_clusters["s_after_total"].isin(
                 events.query("t==[14, 15]")["s_total"].unique()
             ),
             " (Timeout)",
@@ -1383,17 +1389,17 @@ class Game:
         )
 
         # Add note about injuries at the end of the segment
-        times_cluster["after_event"] = np.where(
-            times_cluster["s_after_total"].isin(
+        player_clusters["after_event"] = np.where(
+            player_clusters["s_after_total"].isin(
                 events.query("t==[42, 43]")["s_total"].unique()
             ),
             " (Injury)",
-            times_cluster["after_event"],
+            player_clusters["after_event"],
         )
 
         # Create the figure
         fig = px.timeline(
-            times_cluster,
+            player_clusters,
             x_start="s_before_total",
             x_end="s_after_total",
             y="name",
@@ -1490,7 +1496,7 @@ class Game:
 
         # Set the ranges for shading the chart by cluster
         cluster_shading_ranges = (
-            times_cluster.groupby(["name"])
+            player_clusters.groupby(["name"])
             .head(1)
             .reset_index(drop=True)
             .reset_index()
