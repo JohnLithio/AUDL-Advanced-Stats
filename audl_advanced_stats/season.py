@@ -59,6 +59,9 @@ class Season:
         self.teams = None
         self.players = None
 
+        # QC
+        self.game_qc = None
+
     def get_weeks_urls(self):
         """Get URLs for the schedule of each week of the season."""
         if self.weeks_urls is None:
@@ -404,6 +407,7 @@ class Season:
         opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
+        second_graph=False,
     ):
         """View frequency of possession, scores, turns on the field, similar to shot chart."""
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
@@ -434,7 +438,10 @@ class Season:
         if opposing_team_ids is not None:
             df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
-            df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+            if second_graph:
+                df = df.loc[df[f"r{opposite_suffix}"].isin(player_ids)]
+            else:
+                df = df.loc[df[f"r{suffix}"].isin(player_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
         if remove_ob_pull:
@@ -1496,3 +1503,136 @@ class Season:
         fig.data[0]["colorbar"]["x"] = 0
 
         return fig
+
+    def get_game_qc(self):
+        """Get QC results for each game.
+        
+        Segments in each game without 7 players.
+        Events in raw data without 7 players.
+        Segments in each game with a negative elapsed number of seconds.
+        Events in raw data with negative time stamps.
+        Event types without existing labels.
+        Raw data labels in each game (t, l, x, y, etc.).
+
+        """
+        # 2021-07-02 MAD CHI has order messed up for a point - d-line completions come before pull and block events
+        # 2021-06-18 LA DAL has messed up timestamps
+        if self.game_qc is None:
+            # More or less than 7 players in the processed data
+            not_seven_players_home = []
+            not_seven_players_away = []
+
+            # More or less than 7 players in the raw data
+            not_seven_players_home_raw = []
+            not_seven_players_away_raw = []
+
+            # Negative elapsed durations for point
+            negative_elapsed_home = []
+            negative_elapsed_away = []
+
+            # Negative timestamps for event in raw data
+            negative_time_home_raw = []
+            negative_time_away_raw = []
+
+            # Types of events that we do not have labels for
+            no_event_label_home = []
+            no_event_label_away = []
+
+            # Data labels in each game, such as t, x, y, etc.
+            data_labels_home_raw = []
+            data_labels_away_raw = []
+
+            # Get all games that have events (they've actually happened)
+            existing_games = (
+                self.get_game_info(override=False).query("events_exist==True").copy()
+            )
+
+            # Process each game to get player segments
+            for i, row in existing_games.iterrows():
+                g = Game(row["url"])
+                times_home, psegs_home = g.get_player_segments(
+                    roster=g.get_home_roster(), events=g.get_home_events()
+                )
+                times_away, psegs_away = g.get_player_segments(
+                    roster=g.get_away_roster(), events=g.get_away_events()
+                )
+
+                # Record the number of segments without 7 players in processed data for each team
+                not_seven_players_home.append((psegs_home.sum() != 7).sum())
+                not_seven_players_away.append((psegs_away.sum() != 7).sum())
+
+                # Record the number of segments without 7 players in raw data for each team
+                not_seven_players_home_raw.append(
+                    sum([len(x["l"]) != 7 for x in g.get_home_events_raw() if "l" in x])
+                )
+                not_seven_players_away_raw.append(
+                    sum([len(x["l"]) != 7 for x in g.get_away_events_raw() if "l" in x])
+                )
+
+                # Record the number of segments with a negative elapsed time
+                negative_elapsed_home.append(
+                    (
+                        times_home.groupby(["s_before_total", "s_after_total"])[
+                            "elapsed"
+                        ].min()
+                        < 0
+                    ).sum()
+                )
+                negative_elapsed_away.append(
+                    (
+                        times_away.groupby(["s_before_total", "s_after_total"])[
+                            "elapsed"
+                        ].min()
+                        < 0
+                    ).sum()
+                )
+
+                # Record the number of events with a negative timestamp in raw data
+                negative_time_home_raw.append(
+                    sum([x["s"] < 0 for x in g.get_home_events_raw() if "s" in x])
+                )
+                negative_time_away_raw.append(
+                    sum([x["s"] < 0 for x in g.get_away_events_raw() if "s" in x])
+                )
+
+                # Record the events that we do not have labels for
+                no_event_label_home.append(
+                    g.get_home_events()
+                    .query("event_name!=event_name")["t"]
+                    .unique()
+                    .tolist()
+                )
+                no_event_label_away.append(
+                    g.get_away_events()
+                    .query("event_name!=event_name")["t"]
+                    .unique()
+                    .tolist()
+                )
+
+                # Record the data labels in each game
+                event_types = []
+                for x in g.get_home_events_raw():
+                    event_types.extend(x.keys())
+                data_labels_home_raw.append(sorted(list(set(event_types))))
+                event_types = []
+                for x in g.get_away_events_raw():
+                    event_types.extend(x.keys())
+                data_labels_away_raw.append(sorted(list(set(event_types))))
+
+            # Add results to the games dataframe
+            existing_games["not_seven_players_home"] = not_seven_players_home
+            existing_games["not_seven_players_away"] = not_seven_players_away
+            existing_games["not_seven_players_home_raw"] = not_seven_players_home_raw
+            existing_games["not_seven_players_away_raw"] = not_seven_players_away_raw
+            existing_games["negative_elapsed_home"] = negative_elapsed_home
+            existing_games["negative_elapsed_away"] = negative_elapsed_away
+            existing_games["negative_time_home_raw"] = negative_time_home_raw
+            existing_games["negative_time_away_raw"] = negative_time_away_raw
+            existing_games["no_event_label_home"] = no_event_label_home
+            existing_games["no_event_label_away"] = no_event_label_away
+            existing_games["data_labels_home_raw"] = data_labels_home_raw
+            existing_games["data_labels_away_raw"] = data_labels_away_raw
+
+            self.game_qc = existing_games
+
+        return self.game_qc
