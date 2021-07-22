@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
+import time
 from ast import literal_eval
 from bs4 import BeautifulSoup
 from json import loads
@@ -904,7 +905,11 @@ class Game:
 
         # If events have already been processed and saved, load them
         if Path(events_file_name).is_file():
-            df = pd.read_feather(events_file_name)
+            try:
+                df = pd.read_feather(events_file_name)
+            except FileNotFoundError as e:
+                time.sleep(1)
+                df = pd.read_feather(events_file_name)
 
         # If events have not been processed and saved before, do so
         else:
@@ -2049,17 +2054,112 @@ class Game:
 
         return fig
 
+    def get_player_points_played(self, df, start_only=True):
+        """Get the number of O and D points played by each player.
+
+        start_only=True means we only count who was on at the start of the point.
+        start_only=False means we count players as having played that point even
+            if they came on after an injury or timeout.
+
+        """
+        points_played = []
+        # Get all player IDs for the team in this game
+        players = [x for x in list(df) if x.isdigit()]
+        for playerid in players:
+            if start_only:
+                dftemp = df.groupby(["point_number",]).head(1)
+            else:
+                dftemp = df
+
+            # Get the number of o and d points each player played
+            player_points = (
+                dftemp.assign(turnover=lambda x: x["num_turnovers"] > 0)
+                .groupby([playerid, "o_point", "turnover", "point_outcome"])[
+                    "point_number"
+                ]
+                .nunique()
+                .rename("points")[1]
+                .reset_index()
+                .assign(playerid=playerid)
+            )
+            points_played.append(player_points)
+
+        # Combine all players into a single dataframe
+        dfout = (
+            pd.concat(points_played, ignore_index=True)
+            .assign(
+                o_point=lambda x: x["o_point"].map({True: "o_point", False: "d_point"}),
+                turnover=lambda x: x["turnover"].map(
+                    {True: "at least 1 turn", False: "no turns"}
+                ),
+            )
+            .set_index(["playerid", "o_point", "turnover", "point_outcome"])
+            .unstack(level=["o_point", "turnover", "point_outcome"], fill_value=0)
+            .reset_index()
+        )
+        dfout.columns = ["_".join(col).rstrip("_") for col in dfout.columns.values]
+        o_point_cols = [x for x in list(dfout) if "o_point" in x]
+        o_point_score_cols = [
+            x
+            for x in list(dfout)
+            if ("o_point" in x)
+            and (("Score" in x) or ("Callahan" in x))
+            and ("Opponent" not in x)
+        ]
+        o_point_noturn_cols = [
+            x for x in list(dfout) if ("o_point" in x) and ("no turns" in x)
+        ]
+        d_point_cols = [x for x in list(dfout) if "d_point" in x]
+        d_point_score_cols = [
+            x
+            for x in list(dfout)
+            if ("d_point" in x)
+            and (("Score" in x) or ("Callahan" in x))
+            and ("Opponent" not in x)
+        ]
+        d_point_turn_cols = [
+            x for x in list(dfout) if ("d_point" in x) and ("at least 1 turn" in x)
+        ]
+        dfout["total_points"] = dfout.sum(axis=1)
+        dfout["o_points"] = dfout[o_point_cols].sum(axis=1)
+        dfout["d_points"] = dfout[d_point_cols].sum(axis=1)
+        dfout["o_point_scores"] = dfout[o_point_score_cols].sum(axis=1)
+        dfout["d_point_scores"] = dfout[d_point_score_cols].sum(axis=1)
+        dfout["o_point_noturns"] = dfout[o_point_noturn_cols].sum(axis=1)
+        dfout["d_point_turns"] = dfout[d_point_turn_cols].sum(axis=1)
+        dfout["o_point_score_pct"] = dfout["o_point_scores"] / dfout["o_points"]
+        dfout["d_point_score_pct"] = dfout["d_point_scores"] / dfout["d_points"]
+        dfout["o_point_noturn_pct"] = dfout["o_point_noturns"] / dfout["o_points"]
+        dfout["d_point_turn_pct"] = dfout["d_point_turns"] / dfout["d_points"]
+
+        return dfout[
+            [
+                "playerid",
+                "total_points",
+                "o_points",
+                "o_point_scores",
+                "o_point_score_pct",
+                "o_point_noturns",
+                "o_point_noturn_pct",
+                "d_points",
+                "d_point_scores",
+                "d_point_score_pct",
+                "d_point_turns",
+                "d_point_turn_pct",
+            ]
+        ]
+
     def get_player_stats_by_game(self):
         # TODO: Identify and remove yardage from centering passes
+        # TODO: points played - audl site counts it as a point played if they're on at any point. I should only count who was on for the pull?
         # team
-        # Number
-        # Points played
-        # O points played
-        # D points played
-        # O points ending in goal/total o points (ignoring turns)
-        # D points ending in goal for other team/total d points (ignoring turns)
-        # Pts on field for offensive score/pts on field for o-poss that ended in score or turn
-        # Pts on field for defensive scored on/pts on field for d-poss that ended in score or turn
+        # DONE - Points played
+        # DONE - O points played
+        # DONE - D points played
+        # DONE - O points ending in goal/total o points (ignoring turns)
+        # DONE - D points ending in goal for other team/total d points (ignoring turns)
+        # DONE - Pts on field for offensive score/pts on field for o-poss that ended in score or turn
+        # DONE - Pts on field for defensive scored on/pts on field for d-poss that ended in score or turn
         # AST (and per offensive possession, minute)
         # GLS (and per offensive possession, minute)
         # BLK (and per defensive possession, minute)
