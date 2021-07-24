@@ -11,12 +11,7 @@ from os.path import basename, join
 from pathlib import Path
 from sklearn.cluster import KMeans, Birch
 from .constants import *
-from .utils import (
-    get_data_path,
-    get_json_path,
-    upload_to_bucket,
-    download_from_bucket,
-)
+from .utils import get_data_path, get_json_path, upload_to_bucket, download_from_bucket
 
 
 class Game:
@@ -314,20 +309,16 @@ class Game:
                 ),
                 # Set the outcome of each point and possession
                 point_outcome=lambda x: np.where(
-                    x["t"].isin([6, 7, 21, 22,]), x["t"].map(EVENT_TYPES), None,
+                    x["t"].isin([6, 7, 21, 22]), x["t"].map(EVENT_TYPES), None
                 ),
                 possession_outcome=lambda x: np.where(
-                    x["t"].isin(
-                        [5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,]
-                    )
+                    x["t"].isin([5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27])
                     & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
                     x["t"].map(EVENT_TYPES),
                     None,
                 ),
                 possession_outcome_general=lambda x: np.where(
-                    x["t"].isin(
-                        [5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27,]
-                    )
+                    x["t"].isin([5, 6, 7, 8, 9, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27])
                     & ~(x["t"].isin([8, 19]) & x["t"].shift(1).isin([8, 19])),
                     x["t"].map(EVENT_TYPES_GENERAL),
                     None,
@@ -390,7 +381,7 @@ class Game:
                     & (x["o_point"]),
                     "Hold",
                     "End of Period",
-                ),
+                )
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
@@ -402,7 +393,7 @@ class Game:
                     & (~x["o_point"]),
                     "Opponent Hold",
                     x["point_hold"],
-                ),
+                )
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
@@ -414,7 +405,7 @@ class Game:
                     & (~x["o_point"]),
                     "Break",
                     x["point_hold"],
-                ),
+                )
             )
             .assign(
                 point_hold=lambda x: np.where(
@@ -425,7 +416,7 @@ class Game:
                     & (x["o_point"]),
                     "Opponent Break",
                     x["point_hold"],
-                ),
+                )
             )
             .assign(point_hold=lambda x: x["point_hold"].fillna(method="bfill"))
             # Create a column for each player to indicate if they were on or off the field
@@ -476,7 +467,7 @@ class Game:
         df = df.assign(
             # Convert pull hangtime from milliseconds to seconds
             hangtime=lambda x: x["ms"]
-            / 1000,
+            / 1000
         ).drop(columns=["ms"])
         return df
 
@@ -619,7 +610,7 @@ class Game:
                 # First event of overtime
                 s=lambda x: np.where(
                     x.index.isin(x.groupby(["period"]).head(1).index)
-                    & x["period"].isin([5,]),
+                    & x["period"].isin([5]),
                     5 * 60,
                     x["s"],
                 )
@@ -650,7 +641,7 @@ class Game:
             .assign(
                 # Some time stamps are negative, which seem to be the time elapsed from the start of the period
                 s_total=lambda x: np.where(
-                    x["s"] < 0, -x["s"] + (x["period"] - 1) * 60 * 12, x["s_total"],
+                    x["s"] < 0, -x["s"] + (x["period"] - 1) * 60 * 12, x["s_total"]
                 )
             )
             .assign(
@@ -677,10 +668,10 @@ class Game:
         df = (
             df.assign(
                 # Fill-in lineup info for every event
-                l=lambda x: x["l"].fillna(method="ffill"),
+                l=lambda x: x["l"].fillna(method="ffill")
             )
             # Create a column for each player to indicate if they were on or off the field
-            .pipe(self.get_player_columns).drop(columns=["l",])
+            .pipe(self.get_player_columns).drop(columns=["l"])
         )
         return df
 
@@ -754,7 +745,7 @@ class Game:
             roster.assign(
                 name=lambda x: x["first_name"].str.strip()
                 + " "
-                + x["last_name"].str.strip(),
+                + x["last_name"].str.strip()
             )[["id", "name"]]
             .set_index("id")
             .to_dict()["name"]
@@ -762,7 +753,7 @@ class Game:
 
         # Normal completion
         df["play_description"] = np.where(
-            df["t_after"].isin([20,]),
+            df["t_after"].isin([20]),
             "Completion: "
             + df["r"].map(player_names)
             + " "
@@ -777,14 +768,14 @@ class Game:
 
         # Callahan caught
         df["play_description"] = np.where(
-            df["t_after"].isin([6,]),
+            df["t_after"].isin([6]),
             "Score: " + df["r"].map(player_names) + " Callahan",
             df["play_description"],
         )
 
         # Score
         df["play_description"] = np.where(
-            df["t_after"].isin([22,]),
+            df["t_after"].isin([22]),
             "Score: "
             + df["r"].map(player_names)
             + " "
@@ -799,7 +790,7 @@ class Game:
 
         # Drop
         df["play_description"] = np.where(
-            df["t_after"].isin([19,]),
+            df["t_after"].isin([19]),
             "Turnover: "
             + df["r"].map(player_names)
             + " "
@@ -813,7 +804,7 @@ class Game:
 
         # Throwaway
         df["play_description"] = np.where(
-            df["t_after"].isin([8,]),
+            df["t_after"].isin([8]),
             "Turnover: "
             + df["r"].map(player_names)
             + " "
@@ -826,7 +817,7 @@ class Game:
 
         # Callahan thrown
         df["play_description"] = np.where(
-            df["t_after"].isin([7,]),
+            df["t_after"].isin([7]),
             "Turnover: "
             + df["r"].map(player_names)
             + " "
@@ -839,28 +830,28 @@ class Game:
 
         # Stall
         df["play_description"] = np.where(
-            df["t_after"].isin([17,]),
+            df["t_after"].isin([17]),
             "Turnover: " + df["r"].map(player_names) + " stall",
             df["play_description"],
         )
 
         # Travel
         df["play_description"] = np.where(
-            df["t_after"].isin([10,]),
+            df["t_after"].isin([10]),
             "Travel: " + df["r"].map(player_names),
             df["play_description"],
         )
 
         # Offensive Foul
         df["play_description"] = np.where(
-            df["t_after"].isin([13,]),
+            df["t_after"].isin([13]),
             "Offensive Foul: " + df["r"].map(player_names),
             df["play_description"],
         )
 
         # Defensive Foul
         df["play_description"] = np.where(
-            df["t_after"].isin([12,]), "Defensive Foul", df["play_description"],
+            df["t_after"].isin([12]), "Defensive Foul", df["play_description"]
         )
 
         # End of Period
@@ -898,7 +889,7 @@ class Game:
 
     def get_events(self, home=True, upload=False, qc=False):
         """Process the events for a single team to get yardage, event labels, etc."""
-        events_file_name = join(self.events_path, self.get_events_filename(home=home),)
+        events_file_name = join(self.events_path, self.get_events_filename(home=home))
         # If file doesn't exist locally, try to retrieve it from AWS
         if not Path(events_file_name).is_file():
             download_from_bucket(events_file_name)
@@ -1049,9 +1040,7 @@ class Game:
         psegs.columns = psegs.columns.get_level_values(1)
 
         if qc:
-            print(
-                "Segments w/o 7 players:", (psegs.sum() != 7).sum(),
-            )
+            print("Segments w/o 7 players:", (psegs.sum() != 7).sum())
 
         return times, psegs
 
@@ -1166,7 +1155,7 @@ class Game:
             .reset_index(drop=True)
             .reset_index()
             .assign(
-                team=lambda x: np.where(x["t"] == 22, home_team, away_team,),
+                team=lambda x: np.where(x["t"] == 22, home_team, away_team),
                 points=lambda x: x.groupby(["team"])["t"].cumcount() + 1,
                 s_readable=lambda x: self.total_time_to_readable(x["s_total"]),
             )
@@ -1221,7 +1210,7 @@ class Game:
             color="team",
             line_shape="hv",
             hover_name="s_readable",
-            custom_data=["team", "s_readable",],
+            custom_data=["team", "s_readable"],
             height=250,
         )
 
@@ -1257,12 +1246,12 @@ class Game:
 
             # Add labels for each quarter
             fig.add_annotation(
-                xref="x", yref="y", x=xval, y=-2, showarrow=False, text=label,
+                xref="x", yref="y", x=xval, y=-2, showarrow=False, text=label
             )
 
         # Add all times corresponding with scores
         for i, row in (
-            df[["s_total", "s_readable", "period",]].drop_duplicates().iterrows()
+            df[["s_total", "s_readable", "period"]].drop_duplicates().iterrows()
         ):
             if row["s_total"] not in xticks.keys():
                 if row["period"] <= 4:
@@ -1302,7 +1291,7 @@ class Game:
                 fixedrange=True,
             ),
             # Remove legend title
-            legend=dict(title=None,),
+            legend=dict(title=None),
             # Change font
             font_family="TW Cen MT",
             hoverlabel_font_family="TW Cen MT",
@@ -1316,7 +1305,7 @@ class Game:
         )
 
         # Customize info shown on hover
-        hovertext = "".join(["%{customdata[0]}: %{y}", "<extra></extra>",])
+        hovertext = "".join(["%{customdata[0]}: %{y}", "<extra></extra>"])
         fig.update_traces(hovertemplate=hovertext, legendgroup="a")
 
         return fig
@@ -1373,10 +1362,7 @@ class Game:
             "Opponent Callahan",
             "End of Period",
         ]
-        o_point_order = [
-            "O-Point",
-            "D-Point",
-        ]
+        o_point_order = ["O-Point", "D-Point"]
 
         # Text to show on hover
         hovertext = "<br>".join(
@@ -1520,7 +1506,7 @@ class Game:
                 fixedrange=True,
             ),
             # Remove y axis title
-            yaxis=dict(title=None, fixedrange=True,),
+            yaxis=dict(title=None, fixedrange=True),
             # Remove legend title
             legend=dict(
                 title=None,
@@ -1672,7 +1658,7 @@ class Game:
 
             # Remove hover info for the disc
             fig.update_traces(
-                selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
+                selector={"name": ""}, hoverinfo="skip", hovertemplate=None
             )
 
             # Plot each type of event as a different color
@@ -1709,10 +1695,7 @@ class Game:
             fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
 
             # Adjust slider position
-            fig.layout["sliders"][0]["pad"] = {
-                "b": -25,
-                "t": 25,
-            }
+            fig.layout["sliders"][0]["pad"] = {"b": -25, "t": 25}
             fig.layout["sliders"][0]["y"] = 0.1
 
             # Adjust play and stop button position
@@ -1737,9 +1720,7 @@ class Game:
                     )
         except IndexError as e:
             fig = go.Figure()
-            fig.update_layout(
-                width=width, height=width * 54 / 120,
-            )
+            fig.update_layout(width=width, height=width * 54 / 120)
 
         # Draw field boundaries
         # Vertical lines
@@ -1809,7 +1790,7 @@ class Game:
             hoverlabel_font_family="TW Cen MT",
             showlegend=False,
             # Remove margins
-            margin=dict(t=0, b=0, l=0, r=0,),
+            margin=dict(t=0, b=0, l=0, r=0),
         )
 
         return fig
@@ -1912,7 +1893,7 @@ class Game:
 
             # Remove hover info for the disc
             fig.update_traces(
-                selector={"name": ""}, hoverinfo="skip", hovertemplate=None,
+                selector={"name": ""}, hoverinfo="skip", hovertemplate=None
             )
 
             # Plot each type of event as a different color
@@ -1949,10 +1930,7 @@ class Game:
             fig.layout["sliders"][0]["currentvalue"]["prefix"] = ""
 
             # Adjust slider position
-            fig.layout["sliders"][0]["pad"] = {
-                "b": -25,
-                "t": 25,
-            }
+            fig.layout["sliders"][0]["pad"] = {"b": -25, "t": 25}
             fig.layout["sliders"][0]["y"] = 0.1
 
             # Adjust play and stop button position
@@ -1977,9 +1955,7 @@ class Game:
                     )
         except IndexError as e:
             fig = go.Figure()
-            fig.update_layout(
-                width=height * 54 / 120 + 25, height=height,
-            )
+            fig.update_layout(width=height * 54 / 120 + 25, height=height)
 
         # Draw field boundaries
         # Vertical lines
@@ -2049,10 +2025,14 @@ class Game:
             hoverlabel_font_family="TW Cen MT",
             showlegend=False,
             # Remove margins
-            margin=dict(t=0, b=0, l=0, r=0,),
+            margin=dict(t=0, b=0, l=0, r=0),
         )
 
         return fig
+
+    def flatten_columns(self, df):
+        df.columns = ["_".join(col).rstrip("_") for col in df.columns.values]
+        return df
 
     def get_player_points_played(self, df, start_only=True):
         """Get the number of O and D points played by each player.
@@ -2067,7 +2047,7 @@ class Game:
         players = [x for x in list(df) if x.isdigit()]
         for playerid in players:
             if start_only:
-                dftemp = df.groupby(["point_number",]).head(1)
+                dftemp = df.groupby(["point_number"]).head(1)
             else:
                 dftemp = df
 
@@ -2149,6 +2129,60 @@ class Game:
             ]
         ]
 
+    def get_player_yards(self, df):
+        """Get the receiving and throwing yards for each player in a single game."""
+        df_throw = (
+            df.query("t_after==[20, 22]")
+            .assign(
+                centering_pass=lambda x: x["centering_pass"].map(
+                    {True: "center", False: ""}
+                ),
+                playerid=lambda x: x["r"].astype(int).astype(str),
+            )
+            .groupby(["playerid", "centering_pass"])
+            .agg(
+                {
+                    "xyards": "sum",
+                    "yyards": "sum",
+                    "yyards_raw": "sum",
+                    "yards": "sum",
+                    "yards_raw": "sum",
+                }
+            )
+            .rename(columns=lambda x: x + "_throwing")
+            .unstack(level=["centering_pass"], fill_value=0)
+            .reset_index()
+            .pipe(self.flatten_columns)
+        )
+
+        df_receive = (
+            df.query("t_after==[20, 22]")
+            .assign(
+                centering_pass=lambda x: x["centering_pass"].map(
+                    {True: "center", False: ""}
+                ),
+                playerid=lambda x: x["r_after"].astype(int).astype(str),
+            )
+            .groupby(["playerid", "centering_pass"])
+            .agg(
+                {
+                    "xyards": "sum",
+                    "yyards": "sum",
+                    "yyards_raw": "sum",
+                    "yards": "sum",
+                    "yards_raw": "sum",
+                }
+            )
+            .rename(columns=lambda x: x + "_receiving")
+            .unstack(level=["centering_pass"], fill_value=0)
+            .reset_index()
+            .pipe(self.flatten_columns)
+        )
+
+        dfout = df_throw.merge(df_receive, how="outer", on=["playerid"]).fillna(0)
+
+        return dfout
+
     def get_player_stats_by_game(self):
         # TODO: Identify and remove yardage from centering passes
         # TODO: points played - audl site counts it as a point played if they're on at any point. I should only count who was on for the pull?
@@ -2169,16 +2203,16 @@ class Game:
         # Throw attempts (and per offensive possession, minute)
         # Cmp%
         # receptions (and per offensive possession, minute)
-        # Y raw Yds Rcv (and per throw)
-        # Y Yds Rcv (and per throw)
-        # X Yds Rcv (and per throw)
-        # Total raw Yds Rcv (and per throw)
-        # Total Yds Rcv  (and per throw)
-        # Y raw Yds Thr (and per throw)
-        # Y Yds Thr (and per throw)
-        # X Yds Thr (and per throw)
-        # Total raw Yds Thr (and per throw)
-        # Total Yds Thr (and per throw)
+        # DONE - Y raw Yds Rcv (and per throw)
+        # DONE - Y Yds Rcv (and per throw)
+        # DONE - X Yds Rcv (and per throw)
+        # DONE - Total raw Yds Rcv (and per throw)
+        # DONE - Total Yds Rcv  (and per throw)
+        # DONE - Y raw Yds Thr (and per throw)
+        # DONE - Y Yds Thr (and per throw)
+        # DONE - X Yds Thr (and per throw)
+        # DONE - Total raw Yds Thr (and per throw)
+        # DONE - Total Yds Thr (and per throw)
         # Hockey assists
         # Stalls
         # Ds
