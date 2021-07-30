@@ -2183,10 +2183,126 @@ class Game:
 
         return dfout
 
+    def get_player_touches(self, df):
+        """Get all touches (completions and turns) for a player in a game."""
+        df_throwaway = (
+            df.query("t_after==[7, 8]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("throwaways")
+            .reset_index()
+        )
+
+        df_drop = (
+            df.query("t_after==[19,]")
+            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("drops")
+            .reset_index()
+        )
+
+        df_completion = (
+            df.query("t_after==[20, 22]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("completions")
+            .reset_index()
+        )
+
+        df_reception = (
+            df.query("t_after==[20, 22]")
+            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("receptions")
+            .reset_index()
+        )
+
+        df_stall = (
+            df.query("t_after==[17,]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("stalls")
+            .reset_index()
+        )
+
+        df_assist = (
+            df.query("t_after==[22,]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("assists")
+            .reset_index()
+        )
+
+        df_goal = (
+            df.query("t_after==[22,]")
+            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("goals")
+            .reset_index()
+        )
+
+        df_block = (
+            df.query("t_after==[5,6]")
+            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("blocks")
+            .reset_index()
+        )
+
+        df_callahan = (
+            df.query("t_after==[6,]")
+            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .groupby(["playerid"])
+            .size()
+            .rename("callahans")
+            .reset_index()
+        )
+
+        dfout = (
+            df_throwaway.merge(df_completion, how="outer", on=["playerid"])
+            .merge(df_reception, how="outer", on=["playerid"])
+            .merge(df_drop, how="outer", on=["playerid"])
+            .merge(df_stall, how="outer", on=["playerid"])
+            .merge(df_assist, how="outer", on=["playerid"])
+            .merge(df_goal, how="outer", on=["playerid"])
+            .merge(df_block, how="outer", on=["playerid"])
+            .merge(df_callahan, how="outer", on=["playerid"])
+            .fillna(0)
+            .assign(
+                turnovers=lambda x: x["stalls"] + x["drops"] + x["throwaways"],
+                plus_minus=lambda x: x["goals"]
+                + x["assists"]
+                + x["callahans"]
+                - x["turnovers"],
+                throw_attempts=lambda x: x["throwaways"]
+                + x["completions"]
+                + x["stalls"],
+                catch_attempts=lambda x: x["receptions"] + x["drops"],
+                completion_pct=lambda x: x["completions"] / x["throw_attempts"],
+                reception_pct=lambda x: x["receptions"] / x["catch_attempts"],
+            )
+        )
+
+        return dfout
+
+    def get_player_possessions(self, df):
+        pass
+
+    def get_player_time(self, df):
+        pass
+
     def get_player_stats_by_game(self):
-        # TODO: Identify and remove yardage from centering passes
-        # TODO: points played - audl site counts it as a point played if they're on at any point. I should only count who was on for the pull?
         # team
+        # opposing team
+        # game id
         # DONE - Points played
         # DONE - O points played
         # DONE - D points played
@@ -2194,15 +2310,12 @@ class Game:
         # DONE - D points ending in goal for other team/total d points (ignoring turns)
         # DONE - Pts on field for offensive score/pts on field for o-poss that ended in score or turn
         # DONE - Pts on field for defensive scored on/pts on field for d-poss that ended in score or turn
-        # AST (and per offensive possession, minute)
-        # GLS (and per offensive possession, minute)
-        # BLK (and per defensive possession, minute)
-        # +/- (and per offensive possession, minute)
-        # completions (and per offensive possession, minute)
-        # Throwaways (and per offensive possession, minute)
-        # Throw attempts (and per offensive possession, minute)
-        # Cmp%
-        # receptions (and per offensive possession, minute)
+        # DONE - completions (and per offensive possession, minute)
+        # DONE - Throwaways (and per offensive possession, minute)
+        # DONE - Throw attempts (and per offensive possession, minute)
+        # DONE - receptions (and per offensive possession, minute)
+        # DONE - drops (and per offensive possession, minute)
+        # DONE - Cmp%
         # DONE - Y raw Yds Rcv (and per throw)
         # DONE - Y Yds Rcv (and per throw)
         # DONE - X Yds Rcv (and per throw)
@@ -2213,14 +2326,16 @@ class Game:
         # DONE - X Yds Thr (and per throw)
         # DONE - Total raw Yds Thr (and per throw)
         # DONE - Total Yds Thr (and per throw)
+        # DONE - AST (and per offensive possession, minute)
+        # DONE - GLS (and per offensive possession, minute)
+        # DONE - BLK (and per defensive possession, minute)
+        # DONE - +/- (and per offensive possession, minute)
         # Hockey assists
-        # Stalls
-        # Ds
-        # Callahans
+        # DONE - Stalls
+        # DONE - Ds
+        # DONE - Callahans
         # Time played
-        pass
-
-    def get_player_stats_by_season(self):
+        # possessions
         pass
 
     def get_team_stats_by_game(self):
@@ -2242,34 +2357,12 @@ class Game:
         # X Yds Thr (and per throw)
         # Total raw Yds Thr (and per throw)
         # Total Yds Thr (and per throw)
+        # seconds per throw? Maybe only possible if no turns or after a timeout. Would reflect both distance and time held
         pass
 
-    def get_team_stats_by_season(self):
-        pass
-
-    # Do not count as 2 changes of possession if block, throwaway, score
-    #   occurred with 0 seconds left (1Q DC at NY)
     # TODO What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score.
     # TODO What is the c attribute?  True or False. Present for opponent foul. Might be True when the disc gets centered. Present for week 1 MAD vs MIN
     # TODO What is the o attribute?  True or False. Possibly true/false for OT. Present for end of 4th quarter. Present for week 1 MAD vs MIN
     # TODO What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN
     # TODO What is the h attribute? 1 on some scores and 1 block in TB-BOS.
     # TODO Align docstrings with some auto documentation
-    # TODO Separate viz methods into their own module/class
-    # TODO Figure out a way to cache figures so that small changes do not require re-running the entire thing
-
-    # MATCHING UP POSSESSIONS
-    # Run into issues at the end of quarters
-    #     If a drop occurs, then the other team completes a pass but
-    #     does not turn or score it (2Q IND at DET)
-    #     But if there's a heave, one team might get credit
-    #     for a block while the other team does not get a throwaway
-    # Events with x/y: completion, throwaway, score, OB/IB pull (defense), drop
-    #     Set xend/yend, then adjust xstart/ystart for penalties/travels
-    # Each row should be event:
-    #     completion, throwaway, travel, penalty, stall, score, timeout, end of quarter, pull, injury, etc.
-    # and who to attribute it to on that team:
-    #     thrower, receiver, fouler/traveler, puller
-    # and how many x/y/total yards it accounted for
-    # and who was on the field
-    # and the most recent time and closest following time
