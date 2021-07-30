@@ -381,6 +381,12 @@ class Season:
 
         return self.players
 
+    def get_player_stats_by_season(self):
+        pass
+
+    def get_team_stats_by_season(self):
+        pass
+
     def visual_field_heatmap_horizontal(
         self,
         outcome_measure,
