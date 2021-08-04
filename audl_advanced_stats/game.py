@@ -2055,8 +2055,7 @@ class Game:
         """Get the number of O and D points played by each player.
 
         start_only=True means we only count who was on at the start of the point.
-        start_only=False means we count players as having played that point even
-            if they came on after an injury or timeout.
+        start_only=False means we only count who was on at the end of the point.
 
         """
         points_played = []
@@ -2066,7 +2065,7 @@ class Game:
             if start_only:
                 dftemp = df.groupby(["point_number"]).head(1)
             else:
-                dftemp = df
+                dftemp = df.groupby(["point_number"]).tail(1)
 
             # Get the number of o and d points each player played
             player_points = (
@@ -2148,6 +2147,7 @@ class Game:
 
     def get_player_yards(self, df):
         """Get the receiving and throwing yards for each player in a single game."""
+        # TODO: % of team yards that player accounts for when on the field
         df_throw = (
             df.query("t_after==[20, 22]")
             .assign(
@@ -2170,6 +2170,18 @@ class Game:
             .unstack(level=["centering_pass"], fill_value=0)
             .reset_index()
             .pipe(self.flatten_columns)
+            .assign(
+                xyards_throwing_total=lambda x: x["xyards_throwing"]
+                + x["xyards_throwing_center"],
+                yyards_throwing_total=lambda x: x["yyards_throwing"]
+                + x["yyards_throwing_center"],
+                yyards_raw_throwing_total=lambda x: x["yyards_raw_throwing"]
+                + x["yyards_raw_throwing_center"],
+                yards_throwing_total=lambda x: x["yards_throwing"]
+                + x["yards_throwing_center"],
+                yards_raw_throwing_total=lambda x: x["yards_raw_throwing"]
+                + x["yards_raw_throwing_center"],
+            )
         )
 
         df_receive = (
@@ -2194,6 +2206,18 @@ class Game:
             .unstack(level=["centering_pass"], fill_value=0)
             .reset_index()
             .pipe(self.flatten_columns)
+            .assign(
+                xyards_receiving_total=lambda x: x["xyards_receiving"]
+                + x["xyards_receiving_center"],
+                yyards_receiving_total=lambda x: x["yyards_receiving"]
+                + x["yyards_receiving_center"],
+                yyards_raw_receiving_total=lambda x: x["yyards_raw_receiving"]
+                + x["yyards_raw_receiving_center"],
+                yards_receiving_total=lambda x: x["yards_receiving"]
+                + x["yards_receiving_center"],
+                yards_raw_receiving_total=lambda x: x["yards_raw_receiving"]
+                + x["yards_raw_receiving_center"],
+            )
         )
 
         dfout = df_throw.merge(df_receive, how="outer", on=["playerid"]).fillna(0)
@@ -2202,6 +2226,7 @@ class Game:
 
     def get_player_touches(self, df):
         """Get all touches (completions and turns) for a player in a game."""
+        # TODO: % of team completions/goals/etc. that player accounts for when on the field
         df_throwaway = (
             df.query("t_after==[7, 8]")
             .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
@@ -2310,50 +2335,213 @@ class Game:
 
         return dfout
 
-    def get_player_possessions(self, df):
-        pass
+    def get_player_possessions_played(self, df, start_only=False):
+        """Get the number of O and D possessions played by each player.
 
-    def get_player_time(self, df):
-        pass
+        start_only=True means we only count who was on at the start of the possession.
+        start_only=False means we only count who was on at the end of the possession.
 
-    def get_player_stats_by_game(self):
-        # team
-        # opposing team
-        # game id
-        # DONE - Points played
-        # DONE - O points played
-        # DONE - D points played
-        # DONE - O points ending in goal/total o points (ignoring turns)
-        # DONE - D points ending in goal for other team/total d points (ignoring turns)
-        # DONE - Pts on field for offensive score/pts on field for o-poss that ended in score or turn
-        # DONE - Pts on field for defensive scored on/pts on field for d-poss that ended in score or turn
-        # DONE - completions (and per offensive possession, minute)
-        # DONE - Throwaways (and per offensive possession, minute)
-        # DONE - Throw attempts (and per offensive possession, minute)
-        # DONE - receptions (and per offensive possession, minute)
-        # DONE - drops (and per offensive possession, minute)
-        # DONE - Cmp%
-        # DONE - Y raw Yds Rcv (and per throw)
-        # DONE - Y Yds Rcv (and per throw)
-        # DONE - X Yds Rcv (and per throw)
-        # DONE - Total raw Yds Rcv (and per throw)
-        # DONE - Total Yds Rcv  (and per throw)
-        # DONE - Y raw Yds Thr (and per throw)
-        # DONE - Y Yds Thr (and per throw)
-        # DONE - X Yds Thr (and per throw)
-        # DONE - Total raw Yds Thr (and per throw)
-        # DONE - Total Yds Thr (and per throw)
-        # DONE - AST (and per offensive possession, minute)
-        # DONE - GLS (and per offensive possession, minute)
-        # DONE - BLK (and per defensive possession, minute)
-        # DONE - +/- (and per offensive possession, minute)
-        # Hockey assists
-        # DONE - Stalls
-        # DONE - Ds
-        # DONE - Callahans
-        # Time played
-        # possessions
-        pass
+        """
+        possessions_played = []
+        # Get all player IDs for the team in this game
+        players = [x for x in list(df) if x.isdigit()]
+        for playerid in players:
+            if start_only:
+                dftemp = df.groupby(["possession_number"]).head(1)
+            else:
+                dftemp = df.groupby(["possession_number"]).tail(1)
+
+            # Get the number of o and d possessions each player played
+            player_possessions = (
+                dftemp.assign(
+                    turnover=lambda x: x["possession_outcome_general"] == "Turnover"
+                )
+                .groupby(
+                    [playerid, "offensive_possession", "turnover", "possession_outcome"]
+                )["possession_number"]
+                .nunique()
+                .rename("possessions")[1]
+                .reset_index()
+                .assign(playerid=playerid)
+            )
+            possessions_played.append(player_possessions)
+
+        # Combine all players into a single dataframe
+        dfout = (
+            pd.concat(possessions_played, ignore_index=True)
+            .assign(
+                offensive_possession=lambda x: x["offensive_possession"].map(
+                    {True: "offensive_possession", False: "defensive_possession"}
+                ),
+                turnover=lambda x: x["turnover"].map(
+                    {True: "Turnover", False: "No Turnover"}
+                ),
+            )
+            .set_index(
+                ["playerid", "offensive_possession", "turnover", "possession_outcome"]
+            )
+            .unstack(
+                level=["offensive_possession", "turnover", "possession_outcome"],
+                fill_value=0,
+            )
+            .reset_index()
+        )
+        dfout.columns = ["_".join(col).rstrip("_") for col in dfout.columns.values]
+        o_possession_cols = [x for x in list(dfout) if "offensive_possession" in x]
+        o_possession_score_cols = [
+            x
+            for x in list(dfout)
+            if ("offensive_possession" in x)
+            and ("Score" in x)
+            and ("Opponent" not in x)
+        ]
+        d_possession_cols = [x for x in list(dfout) if "defensive_possession" in x]
+        d_possession_score_cols = [
+            x
+            for x in list(dfout)
+            if ("defensive_possession" in x) and ("Score" in x) and ("Opponent" in x)
+        ]
+        dfout["total_possessions"] = dfout.sum(axis=1)
+        dfout["o_possessions"] = dfout[o_possession_cols].sum(axis=1)
+        dfout["d_possessions"] = dfout[d_possession_cols].sum(axis=1)
+        dfout["o_possession_scores"] = dfout[o_possession_score_cols].sum(axis=1)
+        dfout["d_possession_scores_allowed"] = dfout[d_possession_score_cols].sum(
+            axis=1
+        )
+        dfout["o_possession_score_pct"] = (
+            dfout["o_possession_scores"] / dfout["o_possessions"]
+        )
+        dfout["d_possession_score_allowed_pct"] = (
+            dfout["d_possession_scores_allowed"] / dfout["d_possessions"]
+        )
+
+        return dfout[
+            [
+                "playerid",
+                "total_possessions",
+                "o_possessions",
+                "o_possession_scores",
+                "o_possession_score_pct",
+                "d_possessions",
+                "d_possession_scores_allowed",
+                "d_possession_score_allowed_pct",
+            ]
+        ]
+
+    def get_player_time(self, roster, events):
+        times, psegs = self.get_player_segments(roster=roster, events=events)
+        dfout = (
+            (times.groupby("playerid")["elapsed"].sum() / 60)
+            .rename("minutes_played")
+            .reset_index()
+        )
+
+        return dfout
+
+    def get_player_info(self, roster, team, opponent, game_name):
+        dfout = roster.query("active==True").assign(
+            playerid=lambda x: x["id"].astype(int).astype(str),
+            name=lambda x: x["first_name"].str.strip()
+            + " "
+            + x["last_name"].str.strip(),
+            team=team,
+            opponent=opponent,
+            game_name=game_name,
+        )[["playerid", "name", "team", "opponent", "game_name",]]
+        return dfout
+
+    def get_player_stats_by_game(self, home=True):
+        if home:
+            events = self.get_home_events()
+            roster = self.get_home_roster()
+            team = self.get_home_team()["abbrev"].iloc[0]
+            opponent = self.get_away_team()["abbrev"].iloc[0]
+        else:
+            events = self.get_away_events()
+            roster = self.get_away_roster()
+            team = self.get_away_team()["abbrev"].iloc[0]
+            opponent = self.get_home_team()["abbrev"].iloc[0]
+        game_name = self.get_game_info()["ext_game_id"].iloc[0]
+
+        dfout = (
+            self.get_player_info(
+                roster=roster, team=team, opponent=opponent, game_name=game_name
+            )
+            .merge(
+                self.get_player_points_played(df=events, start_only=True),
+                how="outer",
+                on=["playerid"],
+            )
+            .merge(
+                self.get_player_possessions_played(df=events, start_only=False),
+                how="outer",
+                on=["playerid"],
+            )
+            .merge(
+                self.get_player_time(roster=roster, events=events),
+                how="outer",
+                on=["playerid"],
+            )
+            .merge(self.get_player_touches(df=events), how="outer", on=["playerid"])
+            .merge(self.get_player_yards(df=events), how="outer", on=["playerid"])
+            .assign(
+                throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
+                completions_pp=lambda x: x["completions"] / x["o_possessions"],
+                receptions_pp=lambda x: x["receptions"] / x["o_possessions"],
+                turnovers_pp=lambda x: x["turnovers"] / x["o_possessions"],
+                assists_pp=lambda x: x["assists"] / x["o_possessions"],
+                goals_pp=lambda x: x["goals"] / x["o_possessions"],
+                blocks_pp=lambda x: x["blocks"] / x["d_possessions"],
+                xyards_throwing_pp=lambda x: x["xyards_throwing_total"]
+                / x["o_possessions"],
+                yyards_throwing_pp=lambda x: x["yyards_throwing_total"]
+                / x["o_possessions"],
+                yards_throwing_pp=lambda x: x["yards_throwing_total"]
+                / x["o_possessions"],
+                yyards_raw_throwing_pp=lambda x: x["yyards_raw_throwing_total"]
+                / x["o_possessions"],
+                yards_raw_throwing_pp=lambda x: x["yards_raw_throwing_total"]
+                / x["o_possessions"],
+                xyards_receiving_pp=lambda x: x["xyards_receiving_total"]
+                / x["o_possessions"],
+                yyards_receiving_pp=lambda x: x["yyards_receiving_total"]
+                / x["o_possessions"],
+                yards_receiving_pp=lambda x: x["yards_receiving_total"]
+                / x["o_possessions"],
+                yyards_raw_receiving_pp=lambda x: x["yyards_raw_receiving_total"]
+                / x["o_possessions"],
+                yards_raw_receiving_pp=lambda x: x["yards_raw_receiving_total"]
+                / x["o_possessions"],
+                xyards_throwing_percompletion=lambda x: x["xyards_throwing_total"]
+                / x["completions"],
+                yyards_throwing_percompletion=lambda x: x["yyards_throwing_total"]
+                / x["completions"],
+                yards_throwing_percompletion=lambda x: x["yards_throwing_total"]
+                / x["completions"],
+                yyards_raw_throwing_percompletion=lambda x: x[
+                    "yyards_raw_throwing_total"
+                ]
+                / x["completions"],
+                yards_raw_throwing_percompletion=lambda x: x["yards_raw_throwing_total"]
+                / x["completions"],
+                xyards_receiving_perreception=lambda x: x["xyards_receiving_total"]
+                / x["receptions"],
+                yyards_receiving_perreception=lambda x: x["yyards_receiving_total"]
+                / x["receptions"],
+                yards_receiving_perreception=lambda x: x["yards_receiving_total"]
+                / x["receptions"],
+                yyards_raw_receiving_perreception=lambda x: x[
+                    "yyards_raw_receiving_total"
+                ]
+                / x["receptions"],
+                yards_raw_receiving_perreception=lambda x: x[
+                    "yards_raw_receiving_total"
+                ]
+                / x["receptions"],
+            )
+        )
+
+        return dfout
 
     def get_team_stats_by_game(self):
         # Completions
