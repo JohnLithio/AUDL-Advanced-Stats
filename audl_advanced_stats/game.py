@@ -15,7 +15,14 @@ from .utils import get_data_path, get_json_path, upload_to_bucket, download_from
 
 
 class Game:
-    def __init__(self, game_url, year=CURRENT_YEAR, data_path="data"):
+    def __init__(
+        self,
+        game_url,
+        year=CURRENT_YEAR,
+        data_path="data",
+        upload=False,
+        download=False,
+    ):
         """Initial parameters of game data.
 
         Args:
@@ -28,6 +35,8 @@ class Game:
 
         """
         # Inputs
+        self.upload = upload
+        self.download = download
         self.year = year
         self.game_url = game_url
         self.data_path = get_data_path(data_path)
@@ -60,7 +69,7 @@ class Game:
         self.game_file_name = self.get_game_name() + ".json"
         return self.game_file_name
 
-    def get_response(self, upload=False):
+    def get_response(self, upload=None, download=None):
         """Get the response of a single game and save it.
 
         Returns:
@@ -68,9 +77,14 @@ class Game:
 
         """
         if self.response is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
+
             json_path = join(self.json_path, self.get_game_file_name())
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(json_path).is_file():
+            if not Path(json_path).is_file() and download:
                 download_from_bucket(json_path)
 
             # If events have already been processed and saved, load them
@@ -94,9 +108,7 @@ class Game:
     def get_game_info(self):
         """Get dataframe of basic game info."""
         if self.game_info is None:
-            df = pd.DataFrame.from_records(
-                [self.get_response(upload=True)["game"]]
-            ).drop(
+            df = pd.DataFrame.from_records([self.get_response()["game"]]).drop(
                 columns=[
                     "score_times_home",
                     "score_times_away",
@@ -126,12 +138,12 @@ class Game:
             events_str = "tsgAway"
 
         assert (
-            self.get_response(upload=True)[events_str] is not None
+            self.get_response()[events_str] is not None
         ), "Events not available for this game."
 
         # Get the events
         events = literal_eval(
-            self.get_response(upload=True)[events_str]["events"]
+            self.get_response()[events_str]["events"]
             .replace("true", "True")
             .replace("false", "False")
         )
@@ -166,7 +178,7 @@ class Game:
         else:
             team_str = "away"
 
-        team_raw = self.get_response(upload=True)["game"][f"team_season_{team_str}"]
+        team_raw = self.get_response()["game"][f"team_season_{team_str}"]
 
         # Convert to dataframe and un-nest dicts
         team = (
@@ -204,7 +216,7 @@ class Game:
             roster_str = "Away"
 
         # Get list of dicts of roster
-        roster_raw = self.get_response(upload=True)[f"rosters{roster_str}"]
+        roster_raw = self.get_response()[f"rosters{roster_str}"]
 
         # Convert to dataframe and un-nest dicts
         roster = (
@@ -887,11 +899,16 @@ class Game:
             f"{self.get_game_info()['ext_game_id'].iloc[0]}_{homeawaystr[home]}.feather"
         )
 
-    def get_events(self, home=True, upload=False, qc=False):
+    def get_events(self, home=True, upload=None, download=None, qc=False):
         """Process the events for a single team to get yardage, event labels, etc."""
+        if upload is None:
+            upload = self.upload
+        if download is None:
+            download = self.download
+
         events_file_name = join(self.events_path, self.get_events_filename(home=home))
         # If file doesn't exist locally, try to retrieve it from AWS
-        if not Path(events_file_name).is_file():
+        if not Path(events_file_name).is_file() and download:
             download_from_bucket(events_file_name)
 
         # If events have already been processed and saved, load them
@@ -934,16 +951,16 @@ class Game:
 
         return df
 
-    def get_home_events(self, upload=False, qc=False):
+    def get_home_events(self, qc=False):
         """Get processed dataframe of home team events."""
         if self.home_events is None:
-            self.home_events = self.get_events(home=True, upload=upload, qc=qc)
+            self.home_events = self.get_events(home=True, qc=qc)
         return self.home_events
 
-    def get_away_events(self, upload=False, qc=False):
+    def get_away_events(self, qc=False):
         """Get processed dataframe of away team events."""
         if self.away_events is None:
-            self.away_events = self.get_events(home=False, upload=upload, qc=qc)
+            self.away_events = self.get_events(home=False, qc=qc)
         return self.away_events
 
     def total_time_to_readable(self, time):

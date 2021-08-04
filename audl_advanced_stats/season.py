@@ -24,7 +24,9 @@ from .utils import (
 class Season:
     """This class contains methods for retrieving all of the advanced AUDL stats for a single season."""
 
-    def __init__(self, year=CURRENT_YEAR, data_path="data"):
+    def __init__(
+        self, year=CURRENT_YEAR, data_path="data", upload=False, download=False
+    ):
         """Initialize parameters of season data.
 
         Args:
@@ -36,6 +38,8 @@ class Season:
 
         """
         # Inputs
+        self.upload = upload
+        self.download = download
         self.year = year
         self.data_path = get_data_path(data_path)
         self.json_path = get_json_path(self.data_path, "games_raw")
@@ -80,12 +84,17 @@ class Season:
 
         return self.weeks_urls
 
-    def get_game_info(self, override=False, upload=False):
+    def get_game_info(self, override=False, upload=None, download=None):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
         if self.game_info is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
+
             # If file doesn't exists locally, try to retrieve it from AWS
             game_info_path = join(self.league_info_path, "game_info.feather")
-            if not Path(game_info_path).is_file() and not override:
+            if not Path(game_info_path).is_file() and download and not override:
                 download_from_bucket(game_info_path)
 
             # If file exists locally, load it
@@ -111,7 +120,9 @@ class Season:
                 # Parse URLs to get game info
                 game_list = []
                 for x in sorted(games):
-                    game_response = Game(game_url=x).get_response(upload=True)
+                    game_response = Game(
+                        game_url=x, upload=upload, download=download
+                    ).get_response()
                     if game_response is None:
                         game_exists = False
                     else:
@@ -156,9 +167,20 @@ class Season:
 
         return self.game_info
 
-    def get_games(self, small_file=False, build_new_file=False, upload=False, qc=False):
+    def get_games(
+        self,
+        small_file=False,
+        build_new_file=False,
+        upload=None,
+        download=None,
+        qc=False,
+    ):
         """Download and process all game data."""
         if self.games is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
 
             file_name_small = join(self.games_path, f"all_games_small.feather")
             file_name = join(self.games_path, f"all_games.feather")
@@ -169,7 +191,11 @@ class Season:
                 all_games_file_name = file_name
 
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(all_games_file_name).is_file() and not build_new_file:
+            if (
+                not Path(all_games_file_name).is_file()
+                and download
+                and not build_new_file
+            ):
                 download_from_bucket(all_games_file_name)
 
             # If file exists locally, load it
@@ -180,7 +206,7 @@ class Season:
             else:
                 all_games = []
                 for i, row in self.get_game_info(
-                    upload=upload, override=build_new_file
+                    upload=upload, download=download, override=build_new_file
                 ).iterrows():
                     try:
                         if qc:
@@ -193,15 +219,15 @@ class Season:
                             )
 
                         # Get the game object
-                        g = Game(game_url=row["url"])
+                        g = Game(game_url=row["url"], upload=upload, download=download)
                         events_home_file = g.get_events_filename(home=True)
                         events_away_file = g.get_events_filename(home=True)
 
                         # Get and process the game events if they don't already exist
                         if not Path(events_home_file).is_file():
-                            all_games.append(g.get_home_events(upload=upload, qc=qc))
+                            all_games.append(g.get_home_events(qc=qc))
                         if not Path(events_away_file).is_file():
-                            all_games.append(g.get_away_events(upload=upload, qc=qc))
+                            all_games.append(g.get_away_events(qc=qc))
                     except Exception as e:
                         if qc:
                             print(e)
@@ -240,13 +266,17 @@ class Season:
 
         return self.games
 
-    def get_teams(self, upload=False, qc=False):
+    def get_teams(self, upload=None, download=None, qc=False):
         """Get all teams and team IDs from game data and save it."""
         if self.teams is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
 
             file_name = join(self.league_info_path, "teams.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file():
+            if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
@@ -257,14 +287,18 @@ class Season:
             else:
                 team_ids = (
                     self.get_games(
-                        small_file=False, build_new_file=False, upload=upload, qc=False
+                        small_file=False,
+                        build_new_file=False,
+                        upload=upload,
+                        download=download,
+                        qc=False,
                     )["team_id"]
                     .unique()
                     .tolist()
                 )
                 team_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, override=False
+                    upload=upload, download=download, override=False
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(team_ids) == 0:
@@ -300,13 +334,17 @@ class Season:
 
         return self.teams
 
-    def get_players(self, upload=False, qc=False):
+    def get_players(self, upload=None, download=None, qc=False):
         """Get all players and player IDs from game data and save it."""
         if self.players is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
 
             file_name = join(self.league_info_path, "players.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file():
+            if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
@@ -316,11 +354,13 @@ class Season:
             # Compile data if file does not already exist
             else:
                 player_ids = [
-                    int(x) for x in list(self.get_games(upload=upload)) if x.isdigit()
+                    int(x)
+                    for x in list(self.get_games(upload=upload, download=download))
+                    if x.isdigit()
                 ]
                 player_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, override=False
+                    upload=upload, download=download, override=False
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(player_ids) == 0:
