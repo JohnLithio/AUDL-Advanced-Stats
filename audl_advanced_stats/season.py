@@ -129,6 +129,8 @@ class Season:
                         tsghome = game_response.get("tsgHome", dict())
                         if tsghome is None:
                             game_exists = False
+                        elif tsghome.get("events", None) == "[]":
+                            game_exists = False
                         elif tsghome.get("events", None) is not None:
                             game_exists = True
                         else:
