@@ -45,6 +45,7 @@ class Season:
         self.json_path = get_json_path(self.data_path, "games_raw")
         self.games_path = get_games_path(self.data_path, "all_games")
         self.league_info_path = get_games_path(self.data_path, "league_info")
+        self.stats_path = get_games_path(self.data_path, "stats")
 
         # Create directories if they don't exist
         Path(self.data_path).mkdir(parents=True, exist_ok=True)
@@ -62,6 +63,10 @@ class Season:
         self.games = None
         self.teams = None
         self.players = None
+        self.player_stats_by_game = None
+        self.team_stats_by_game = None
+        self.player_stats_by_season = None
+        self.team_stats_by_season = None
 
         # QC
         self.game_qc = None
@@ -422,6 +427,33 @@ class Season:
                     upload_to_bucket(file_name)
 
         return self.players
+
+    def get_player_stats_by_game(self):
+        # TODO: Some errors caused by 2 consecutive fouls
+        if self.player_stats_by_game is None:
+            file_name = join(self.stats_path, "player_stats_by_game.feather")
+
+            # Get all games that have events (they've actually happened)
+            existing_games = (
+                self.get_game_info(override=False).query("events_exist==True").copy()
+            )
+
+            player_stats = []
+            # Process each game to get player segments
+            for i, row in existing_games.iterrows():
+                print(row["url"])
+                g = Game(row["url"])
+                home_stats = g.get_player_stats_by_game(home=True)
+                away_stats = g.get_player_stats_by_game(home=False)
+                player_stats.extend([home_stats, away_stats])
+
+            self.player_stats_by_game = pd.concat(player_stats, ignore_index=True)
+            self.player_stats_by_game.to_feather(file_name)
+
+        return self.player_stats_by_game
+
+    def get_team_stats_by_game(self):
+        pass
 
     def get_player_stats_by_season(self):
         pass
