@@ -499,6 +499,23 @@ class Game:
                 y=lambda x: x["y"].fillna(x["y_new"]),
                 r=lambda x: x["r"].fillna(x["r_new"]),
             )
+            .assign(
+                x=lambda x: np.where(
+                    x["t"].isin([17, 20]),
+                    x.groupby(["possession_number"])["x"].fillna(method="ffill"),
+                    x["x"],
+                ),
+                y=lambda x: np.where(
+                    x["t"].isin([17, 20]),
+                    x.groupby(["possession_number"])["y"].fillna(method="ffill"),
+                    x["y"],
+                ),
+                r=lambda x: np.where(
+                    x["t"].isin([17, 20]),
+                    x.groupby(["possession_number"])["r"].fillna(method="ffill"),
+                    x["r"],
+                ),
+            )
             .drop(columns=["x_new", "y_new", "r_new"])
         )
         return df
@@ -521,6 +538,23 @@ class Game:
                 y=lambda x: x["y"].fillna(x["y_new"]),
                 r=lambda x: x["r"].fillna(x["r_new"]),
             )
+            .assign(
+                x=lambda x: np.where(
+                    x["t"].isin([10, 20]),
+                    x.groupby(["possession_number"])["x"].fillna(method="ffill"),
+                    x["x"],
+                ),
+                y=lambda x: np.where(
+                    x["t"].isin([10, 20]),
+                    x.groupby(["possession_number"])["y"].fillna(method="ffill"),
+                    x["y"],
+                ),
+                r=lambda x: np.where(
+                    x["t"].isin([10, 20]),
+                    x.groupby(["possession_number"])["r"].fillna(method="ffill"),
+                    x["r"],
+                ),
+            )
             .drop(columns=["x_new", "y_new", "r_new"])
         )
         return df
@@ -534,8 +568,6 @@ class Game:
             .assign(
                 # Maximum of 100 yards in y direction, which is the goal-line (range is 0 to 120)
                 y=lambda x: (x["y"] + 10).clip(upper=100),
-                # # If penalty is within 10 yards of the endzone, center it on the goalline
-                # x=lambda x: np.where(x["y"] >= 90, 0, x["x"]),
             )
         )
         # If penalty is within 10 yards of the endzone, center it on the goalline
@@ -551,9 +583,45 @@ class Game:
                 y=lambda x: x["y"].fillna(x["y_new"]),
                 r=lambda x: x["r"].fillna(x["r_new"]),
             )
+            .assign(
+                x=lambda x: np.where(
+                    x["t"].isin([12, 20]),
+                    x.groupby(["possession_number"])["x"].fillna(method="ffill"),
+                    x["x"],
+                ),
+                y=lambda x: np.where(
+                    x["t"].isin([12, 20]),
+                    x.groupby(["possession_number"])["y"].fillna(method="ffill"),
+                    x["y"],
+                ),
+                r=lambda x: np.where(
+                    x["t"].isin([12, 20]),
+                    x.groupby(["possession_number"])["r"].fillna(method="ffill"),
+                    x["r"],
+                ),
+            )
             .drop(columns=["x_new", "y_new", "r_new"])
         )
         return df
+
+    def fill_missing_info(self, df):
+        return df.assign(
+            x=lambda x: np.where(
+                x["t"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                x.groupby(["possession_number"])["x"].fillna(method="ffill"),
+                x["x"],
+            ),
+            y=lambda x: np.where(
+                x["t"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                x.groupby(["possession_number"])["y"].fillna(method="ffill"),
+                x["y"],
+            ),
+            r=lambda x: np.where(
+                x["t"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                x.groupby(["possession_number"])["r"].fillna(method="ffill"),
+                x["r"],
+            ),
+        )
 
     def get_events_yardage(self, df):
         # Get the x,y position for the next throwaway, travel, defensive foul, drop, completion, or score
@@ -566,6 +634,23 @@ class Game:
         # Add columns for the next event to each row so we can calculate yardage
         df = (
             pd.concat([df, next_event], axis=1)
+            .assign(
+                x=lambda x: np.where(
+                    x["t_after"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                    x.groupby(["possession_number"])["x"].fillna(method="ffill"),
+                    x["x"],
+                ),
+                y=lambda x: np.where(
+                    x["t_after"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                    x.groupby(["possession_number"])["y"].fillna(method="ffill"),
+                    x["y"],
+                ),
+                r=lambda x: np.where(
+                    x["t_after"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
+                    x.groupby(["possession_number"])["r"].fillna(method="ffill"),
+                    x["r"],
+                ),
+            )
             .assign(
                 # Set x and y values for pulls to align with the format for other events
                 x_after=lambda x: np.where(x["t"].isin([3, 4]), x["x"], x["x_after"]),
@@ -937,6 +1022,7 @@ class Game:
                 .pipe(self.get_events_stalls)
                 .pipe(self.get_events_o_penalties)
                 .pipe(self.get_events_d_penalties)
+                .pipe(self.fill_missing_info)
                 .pipe(self.get_events_yardage)
                 .pipe(self.get_events_times)
                 .pipe(self.get_events_lineups)
@@ -2351,6 +2437,10 @@ class Game:
             else:
                 dftemp = df.groupby(["possession_number"]).tail(1)
 
+            # Skip players that were not on for the beginning/end of any possessions
+            if 1 not in dftemp[playerid].values:
+                continue
+
             # Get the number of o and d possessions each player played
             player_possessions = (
                 dftemp.assign(
@@ -2439,7 +2529,7 @@ class Game:
         return dfout
 
     def get_player_info(self, roster, team, opponent, game_name):
-        dfout = roster.query("active==True").assign(
+        dfout = roster.assign(
             playerid=lambda x: x["id"].astype(int).astype(str),
             name=lambda x: x["first_name"].str.strip()
             + " "
@@ -2447,7 +2537,7 @@ class Game:
             team=team,
             opponent=opponent,
             game_name=game_name,
-        )[["playerid", "name", "team", "opponent", "game_name",]]
+        )[["playerid", "name", "team", "opponent", "game_name",]].drop_duplicates()
         return dfout
 
     def get_player_stats_by_game(self, home=True):
@@ -2469,7 +2559,7 @@ class Game:
             )
             .merge(
                 self.get_player_points_played(df=events, start_only=True),
-                how="outer",
+                how="right",
                 on=["playerid"],
             )
             .merge(
@@ -2484,61 +2574,62 @@ class Game:
             )
             .merge(self.get_player_touches(df=events), how="outer", on=["playerid"])
             .merge(self.get_player_yards(df=events), how="outer", on=["playerid"])
-            .assign(
-                throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
-                completions_pp=lambda x: x["completions"] / x["o_possessions"],
-                receptions_pp=lambda x: x["receptions"] / x["o_possessions"],
-                turnovers_pp=lambda x: x["turnovers"] / x["o_possessions"],
-                assists_pp=lambda x: x["assists"] / x["o_possessions"],
-                goals_pp=lambda x: x["goals"] / x["o_possessions"],
-                blocks_pp=lambda x: x["blocks"] / x["d_possessions"],
-                xyards_throwing_pp=lambda x: x["xyards_throwing_total"]
-                / x["o_possessions"],
-                yyards_throwing_pp=lambda x: x["yyards_throwing_total"]
-                / x["o_possessions"],
-                yards_throwing_pp=lambda x: x["yards_throwing_total"]
-                / x["o_possessions"],
-                yyards_raw_throwing_pp=lambda x: x["yyards_raw_throwing_total"]
-                / x["o_possessions"],
-                yards_raw_throwing_pp=lambda x: x["yards_raw_throwing_total"]
-                / x["o_possessions"],
-                xyards_receiving_pp=lambda x: x["xyards_receiving_total"]
-                / x["o_possessions"],
-                yyards_receiving_pp=lambda x: x["yyards_receiving_total"]
-                / x["o_possessions"],
-                yards_receiving_pp=lambda x: x["yards_receiving_total"]
-                / x["o_possessions"],
-                yyards_raw_receiving_pp=lambda x: x["yyards_raw_receiving_total"]
-                / x["o_possessions"],
-                yards_raw_receiving_pp=lambda x: x["yards_raw_receiving_total"]
-                / x["o_possessions"],
-                xyards_throwing_percompletion=lambda x: x["xyards_throwing_total"]
-                / x["completions"],
-                yyards_throwing_percompletion=lambda x: x["yyards_throwing_total"]
-                / x["completions"],
-                yards_throwing_percompletion=lambda x: x["yards_throwing_total"]
-                / x["completions"],
-                yyards_raw_throwing_percompletion=lambda x: x[
-                    "yyards_raw_throwing_total"
-                ]
-                / x["completions"],
-                yards_raw_throwing_percompletion=lambda x: x["yards_raw_throwing_total"]
-                / x["completions"],
-                xyards_receiving_perreception=lambda x: x["xyards_receiving_total"]
-                / x["receptions"],
-                yyards_receiving_perreception=lambda x: x["yyards_receiving_total"]
-                / x["receptions"],
-                yards_receiving_perreception=lambda x: x["yards_receiving_total"]
-                / x["receptions"],
-                yyards_raw_receiving_perreception=lambda x: x[
-                    "yyards_raw_receiving_total"
-                ]
-                / x["receptions"],
-                yards_raw_receiving_perreception=lambda x: x[
-                    "yards_raw_receiving_total"
-                ]
-                / x["receptions"],
-            )
+        )
+
+        # Fill in missing values
+        for col in list(dfout):
+            if ("pct" not in col) and (
+                col not in ["playerid", "name", "team", "opponent", "game_name"]
+            ):
+                dfout[col] = dfout[col].fillna(0)
+
+        dfout = dfout.assign(
+            throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
+            completions_pp=lambda x: x["completions"] / x["o_possessions"],
+            receptions_pp=lambda x: x["receptions"] / x["o_possessions"],
+            turnovers_pp=lambda x: x["turnovers"] / x["o_possessions"],
+            assists_pp=lambda x: x["assists"] / x["o_possessions"],
+            goals_pp=lambda x: x["goals"] / x["o_possessions"],
+            blocks_pp=lambda x: x["blocks"] / x["d_possessions"],
+            xyards_throwing_pp=lambda x: x["xyards_throwing_total"]
+            / x["o_possessions"],
+            yyards_throwing_pp=lambda x: x["yyards_throwing_total"]
+            / x["o_possessions"],
+            yards_throwing_pp=lambda x: x["yards_throwing_total"] / x["o_possessions"],
+            yyards_raw_throwing_pp=lambda x: x["yyards_raw_throwing_total"]
+            / x["o_possessions"],
+            yards_raw_throwing_pp=lambda x: x["yards_raw_throwing_total"]
+            / x["o_possessions"],
+            xyards_receiving_pp=lambda x: x["xyards_receiving_total"]
+            / x["o_possessions"],
+            yyards_receiving_pp=lambda x: x["yyards_receiving_total"]
+            / x["o_possessions"],
+            yards_receiving_pp=lambda x: x["yards_receiving_total"]
+            / x["o_possessions"],
+            yyards_raw_receiving_pp=lambda x: x["yyards_raw_receiving_total"]
+            / x["o_possessions"],
+            yards_raw_receiving_pp=lambda x: x["yards_raw_receiving_total"]
+            / x["o_possessions"],
+            xyards_throwing_percompletion=lambda x: x["xyards_throwing_total"]
+            / x["completions"],
+            yyards_throwing_percompletion=lambda x: x["yyards_throwing_total"]
+            / x["completions"],
+            yards_throwing_percompletion=lambda x: x["yards_throwing_total"]
+            / x["completions"],
+            yyards_raw_throwing_percompletion=lambda x: x["yyards_raw_throwing_total"]
+            / x["completions"],
+            yards_raw_throwing_percompletion=lambda x: x["yards_raw_throwing_total"]
+            / x["completions"],
+            xyards_receiving_perreception=lambda x: x["xyards_receiving_total"]
+            / x["receptions"],
+            yyards_receiving_perreception=lambda x: x["yyards_receiving_total"]
+            / x["receptions"],
+            yards_receiving_perreception=lambda x: x["yards_receiving_total"]
+            / x["receptions"],
+            yyards_raw_receiving_perreception=lambda x: x["yyards_raw_receiving_total"]
+            / x["receptions"],
+            yards_raw_receiving_perreception=lambda x: x["yards_raw_receiving_total"]
+            / x["receptions"],
         )
 
         return dfout
