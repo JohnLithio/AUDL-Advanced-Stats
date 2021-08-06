@@ -52,6 +52,7 @@ class Season:
         Path(self.json_path).mkdir(parents=True, exist_ok=True)
         Path(self.games_path).mkdir(parents=True, exist_ok=True)
         Path(self.league_info_path).mkdir(parents=True, exist_ok=True)
+        Path(self.stats_path).mkdir(parents=True, exist_ok=True)
 
         # URLs to retrieve data from
         self.schedule_url = SCHEDULE_URL
@@ -428,27 +429,47 @@ class Season:
 
         return self.players
 
-    def get_player_stats_by_game(self):
-        # TODO: Some errors caused by 2 consecutive fouls
+    def get_player_stats_by_game(self, upload=False, download=False):
         if self.player_stats_by_game is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
+
             file_name = join(self.stats_path, "player_stats_by_game.feather")
+            # If file doesn't exist locally, try to retrieve it from AWS
+            if not Path(file_name).is_file() and download:
+                download_from_bucket(file_name)
 
-            # Get all games that have events (they've actually happened)
-            existing_games = (
-                self.get_game_info(override=False).query("events_exist==True").copy()
-            )
+            # If file exists locally, load it
+            if Path(file_name).is_file():
+                self.player_stats_by_game = pd.read_feather(file_name)
 
-            player_stats = []
-            # Process each game to get player segments
-            for i, row in existing_games.iterrows():
-                print(row["url"])
-                g = Game(row["url"])
-                home_stats = g.get_player_stats_by_game(home=True)
-                away_stats = g.get_player_stats_by_game(home=False)
-                player_stats.extend([home_stats, away_stats])
+            else:
+                # Get all games that have events (they've actually happened)
+                existing_games = (
+                    self.get_game_info(override=False)
+                    .query("events_exist==True")
+                    .copy()
+                )
 
-            self.player_stats_by_game = pd.concat(player_stats, ignore_index=True)
-            self.player_stats_by_game.to_feather(file_name)
+                player_stats = []
+                # Process each game to get player segments
+                for i, row in existing_games.iterrows():
+                    g = Game(row["url"])
+                    home_stats = g.get_player_stats_by_game(home=True)
+                    away_stats = g.get_player_stats_by_game(home=False)
+                    player_stats.extend([home_stats, away_stats])
+
+                self.player_stats_by_game = pd.concat(player_stats, ignore_index=True)
+
+                # Only keep players who are listed on any roster - removes invalid player IDs e.g. -1
+                self.player_stats_by_game.loc[
+                    self.player_stats_by_game["playerid"].isin(
+                        self.get_players()["player_id"].astype(int).astype(str).unique()
+                    )
+                ]
+                self.player_stats_by_game.to_feather(file_name)
 
         return self.player_stats_by_game
 
