@@ -2377,8 +2377,8 @@ class Game:
         )
 
         df_block = (
-            df.query("t_after==[5,6]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            df.query("t==[5,6]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("blocks")
@@ -2386,8 +2386,8 @@ class Game:
         )
 
         df_callahan = (
-            df.query("t_after==[6,]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            df.query("t==[6,]")
+            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("callahans")
@@ -2536,8 +2536,8 @@ class Game:
             + x["last_name"].str.strip(),
             team=team,
             opponent=opponent,
-            game_name=game_name,
-        )[["playerid", "name", "team", "opponent", "game_name",]].drop_duplicates()
+            game_date=game_name[:10],
+        )[["playerid", "name", "team", "opponent", "game_date",]].drop_duplicates()
         return dfout
 
     def get_player_stats_by_game(self, home=True):
@@ -2579,7 +2579,7 @@ class Game:
         # Fill in missing values
         for col in list(dfout):
             if ("pct" not in col) and (
-                col not in ["playerid", "name", "team", "opponent", "game_name"]
+                col not in ["playerid", "name", "team", "opponent", "game_date"]
             ):
                 dfout[col] = dfout[col].fillna(0)
 
@@ -2631,6 +2631,11 @@ class Game:
             yards_raw_receiving_perreception=lambda x: x["yards_raw_receiving_total"]
             / x["receptions"],
         )
+
+        # Remove decimal points
+        numeric_cols = [col for col in dfout if dfout.dtypes[col] == "float64"]
+        for col in numeric_cols:
+            dfout[col] = dfout[col].round(0)
 
         return dfout
 
