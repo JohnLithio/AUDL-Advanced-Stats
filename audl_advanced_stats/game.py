@@ -2572,7 +2572,6 @@ class Game:
         return dfout
 
     def get_player_stats_by_game(self, home=True):
-        # TODO: Fix blank player info
         if home:
             events = self.get_home_events()
             roster = self.get_home_roster()
@@ -2606,6 +2605,8 @@ class Game:
             )
             .merge(self.get_player_touches(df=events), how="outer", on=["playerid"])
             .merge(self.get_player_yards(df=events), how="outer", on=["playerid"])
+            # Only keep records with a valid player ID that can be connected to a name
+            .query("name==name")
         )
 
         # Fill in missing values
