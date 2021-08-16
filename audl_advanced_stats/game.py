@@ -2616,6 +2616,18 @@ class Game:
             ):
                 dfout[col] = dfout[col].fillna(0)
 
+        # The below games have incorrect timestamp data, leading to incorrect minute totals
+        # We'll make the minutes for these games null
+        bad_timestamps = [
+            ("LA", "2021-06-18"),
+            ("CHI", "2021-07-11"),
+        ]
+        for team, game_date in bad_timestamps:
+            dfout.loc[
+                (dfout["team"] == team) & (dfout["game_date"] == game_date),
+                "minutes_played",
+            ] = None
+
         dfout = dfout.assign(
             throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
             completions_pp=lambda x: x["completions"] / x["o_possessions"],
