@@ -2630,6 +2630,8 @@ class Game:
 
         dfout = dfout.assign(
             throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
+            drops_pp=lambda x: x["drops"] / x["o_possessions"],
+            stalls_pp=lambda x: x["stalls"] / x["o_possessions"],
             completions_pp=lambda x: x["completions"] / x["o_possessions"],
             receptions_pp=lambda x: x["receptions"] / x["o_possessions"],
             turnovers_pp=lambda x: x["turnovers"] / x["o_possessions"],
@@ -2685,7 +2687,10 @@ class Game:
         # Remove decimal points
         numeric_cols = [col for col in dfout if dfout.dtypes[col] == "float64"]
         for col in numeric_cols:
-            dfout[col] = dfout[col].round(0)
+            if (("_percompletion" in col) or ("_pp" in col)) and ("yards" not in col):
+                dfout[col] = dfout[col].round(2)
+            else:
+                dfout[col] = dfout[col].round(0)
 
         return dfout
 
