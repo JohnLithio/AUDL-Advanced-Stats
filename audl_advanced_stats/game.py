@@ -2306,7 +2306,38 @@ class Game:
             )
         )
 
-        dfout = df_throw.merge(df_receive, how="outer", on=["playerid"]).fillna(0)
+        dfout = (
+            df_throw.merge(df_receive, how="outer", on=["playerid"])
+            .fillna(0)
+            .assign(
+                xyards_total=lambda x: x["xyards_receiving_total"]
+                + x["xyards_throwing_total"],
+                yyards_total=lambda x: x["yyards_receiving_total"]
+                + x["yyards_throwing_total"],
+                yards_total=lambda x: x["yards_receiving_total"]
+                + x["yards_throwing_total"],
+                yyards_raw_total=lambda x: x["yyards_raw_receiving_total"]
+                + x["yyards_raw_throwing_total"],
+                yards_raw_total=lambda x: x["yards_raw_receiving_total"]
+                + x["yards_raw_throwing_total"],
+                xyards_center=lambda x: x["xyards_receiving_center"]
+                + x["xyards_throwing_center"],
+                yyards_center=lambda x: x["yyards_receiving_center"]
+                + x["yyards_throwing_center"],
+                yards_center=lambda x: x["yards_receiving_center"]
+                + x["yards_throwing_center"],
+                yyards_raw_center=lambda x: x["yyards_raw_receiving_center"]
+                + x["yyards_raw_throwing_center"],
+                yards_raw_center=lambda x: x["yards_raw_receiving_center"]
+                + x["yards_raw_throwing_center"],
+                xyards=lambda x: x["xyards_receiving"] + x["xyards_throwing"],
+                yyards=lambda x: x["yyards_receiving"] + x["yyards_throwing"],
+                yards=lambda x: x["yards_receiving"] + x["yards_throwing"],
+                yyards_raw=lambda x: x["yyards_raw_receiving"]
+                + x["yyards_raw_throwing"],
+                yards_raw=lambda x: x["yards_raw_receiving"] + x["yards_raw_throwing"],
+            )
+        )
 
         return dfout
 
@@ -2541,6 +2572,7 @@ class Game:
         return dfout
 
     def get_player_stats_by_game(self, home=True):
+        # TODO: Fix blank player info
         if home:
             events = self.get_home_events()
             roster = self.get_home_roster()
@@ -2610,6 +2642,11 @@ class Game:
             / x["o_possessions"],
             yards_raw_receiving_pp=lambda x: x["yards_raw_receiving_total"]
             / x["o_possessions"],
+            xyards_pp=lambda x: x["xyards_total"] / x["o_possessions"],
+            yyards_pp=lambda x: x["yyards_total"] / x["o_possessions"],
+            yards_pp=lambda x: x["yards_total"] / x["o_possessions"],
+            yyards_raw_pp=lambda x: x["yyards_raw_total"] / x["o_possessions"],
+            yards_raw_pp=lambda x: x["yards_raw_total"] / x["o_possessions"],
             xyards_throwing_percompletion=lambda x: x["xyards_throwing_total"]
             / x["completions"],
             yyards_throwing_percompletion=lambda x: x["yyards_throwing_total"]
