@@ -11,7 +11,7 @@ from pathlib import Path
 from plotly.subplots import make_subplots
 from re import search
 from .constants import *
-from .game import Game
+from .game import Game, get_player_rates, round_player_stats
 from .utils import (
     get_data_path,
     get_json_path,
@@ -474,12 +474,51 @@ class Season:
         return self.player_stats_by_game
 
     def get_team_stats_by_game(self):
+        # TODO: Season team stats by game
         pass
 
-    def get_player_stats_by_season(self):
-        pass
+    def get_player_stats_by_season(self, upload=False, download=False):
+        if self.player_stats_by_season is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
+
+            file_name = join(self.stats_path, "player_stats_by_season.feather")
+            # If file doesn't exist locally, try to retrieve it from AWS
+            if not Path(file_name).is_file() and download:
+                download_from_bucket(file_name)
+
+            # If file exists locally, load it
+            if Path(file_name).is_file():
+                self.player_stats_by_season = pd.read_feather(file_name)
+
+            else:
+                # Get player stats by game
+                df = self.get_player_stats_by_game(upload=upload, download=download)
+                info_cols = [
+                    "playerid",
+                    "name",
+                    "team",
+                    "opponent",
+                    "game_date",
+                ]
+                stat_cols = [col for col in list(df) if col not in info_cols]
+
+                self.player_stats_by_season = (
+                    df.groupby(["playerid", "name", "team",])[stat_cols]
+                    .sum()
+                    .reset_index()
+                    .pipe(get_player_rates)
+                    .pipe(round_player_stats)
+                )
+
+                self.player_stats_by_season.to_feather(file_name)
+
+        return self.player_stats_by_season
 
     def get_team_stats_by_season(self):
+        # TODO: Season team stats
         pass
 
     def visual_field_heatmap_horizontal(
