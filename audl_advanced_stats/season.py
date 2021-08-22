@@ -502,15 +502,16 @@ class Season:
                     "team",
                     "opponent",
                     "game_date",
+                    "year",
                 ]
                 stat_cols = [col for col in list(df) if col not in info_cols]
 
                 self.player_stats_by_season = (
-                    df.groupby(["playerid", "name", "team",])[stat_cols]
+                    df.groupby(["playerid", "name", "team", "year",])[stat_cols]
                     .sum()
                     .reset_index()
                     .pipe(get_player_rates)
-                    .pipe(round_player_stats)
+                    # .pipe(round_player_stats)
                 )
 
                 self.player_stats_by_season.to_feather(file_name)
