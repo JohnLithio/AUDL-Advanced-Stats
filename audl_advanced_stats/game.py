@@ -2578,7 +2578,7 @@ class Game:
 
         df_throwaway = (
             df.query("t_after==[7, 8]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("throwaways")
@@ -2587,7 +2587,7 @@ class Game:
 
         df_drop = (
             df.query("t_after==[19,]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("drops")
@@ -2596,7 +2596,7 @@ class Game:
 
         df_completion = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("completions")
@@ -2605,7 +2605,7 @@ class Game:
 
         df_reception = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("receptions")
@@ -2614,7 +2614,7 @@ class Game:
 
         df_stall = (
             df.query("t_after==[17,]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("stalls")
@@ -2623,7 +2623,7 @@ class Game:
 
         df_assist = (
             df.query("t_after==[22,]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("assists")
@@ -2632,7 +2632,7 @@ class Game:
 
         df_goal = (
             df.query("t_after==[22,]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("goals")
@@ -2641,7 +2641,7 @@ class Game:
 
         df_block = (
             df.query("t==[5,6]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("blocks")
@@ -2650,7 +2650,7 @@ class Game:
 
         df_callahan = (
             df.query("t==[6,]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
             .groupby(["playerid"])
             .size()
             .rename("callahans")
