@@ -107,6 +107,12 @@ def get_player_rates(df):
         reception_pct=lambda x: x["receptions"] / x["catch_attempts"],
         assists_perthrowattempt=lambda x: x["assists"] / x["throw_attempts"],
         goals_percatchattempt=lambda x: x["goals"] / x["catch_attempts"],
+        points_team_pct=lambda x: x["total_points"] / x["points_team"],
+        o_points_team_pct=lambda x: x["o_points"] / x["o_points_team"],
+        d_points_team_pct=lambda x: x["d_points"] / x["d_points_team"],
+        possessions_team_pct=lambda x: x["total_possessions"] / x["possessions_team"],
+        o_possessions_team_pct=lambda x: x["o_possessions"] / x["o_possessions_team"],
+        d_possessions_team_pct=lambda x: x["d_possessions"] / x["d_possessions_team"],
         throwaways_team_pct=lambda x: x["throwaways"] / x["throwaways_team"],
         drops_team_pct=lambda x: x["drops"] / x["drops_team"],
         receptions_team_pct=lambda x: x["receptions"] / x["completions_team"],
@@ -2317,6 +2323,11 @@ class Game:
             )
             points_played.append(player_points)
 
+        # Get number of o and d points for the entire team
+        points_team = df["point_number"].nunique()
+        o_points_team = df.query("o_point==True")["point_number"].nunique()
+        d_points_team = df.query("o_point==False")["point_number"].nunique()
+
         # Combine all players into a single dataframe
         dfout = (
             pd.concat(points_played, ignore_index=True)
@@ -2360,6 +2371,9 @@ class Game:
         dfout["d_point_scores"] = dfout[d_point_score_cols].sum(axis=1)
         dfout["o_point_noturns"] = dfout[o_point_noturn_cols].sum(axis=1)
         dfout["d_point_turns"] = dfout[d_point_turn_cols].sum(axis=1)
+        dfout["points_team"] = points_team
+        dfout["o_points_team"] = o_points_team
+        dfout["d_points_team"] = d_points_team
 
         return dfout[
             [
@@ -2371,6 +2385,9 @@ class Game:
                 "d_points",
                 "d_point_scores",
                 "d_point_turns",
+                "points_team",
+                "o_points_team",
+                "d_points_team",
             ]
         ]
 
@@ -2701,6 +2718,15 @@ class Game:
             )
             possessions_played.append(player_possessions)
 
+        # Get the number of o and d possessions for the entire team
+        possessions_team = df["possession_number"].nunique()
+        o_possessions_team = df.query("offensive_possession==True")[
+            "possession_number"
+        ].nunique()
+        d_possessions_team = df.query("offensive_possession==False")[
+            "possession_number"
+        ].nunique()
+
         # Combine all players into a single dataframe
         dfout = (
             pd.concat(possessions_played, ignore_index=True)
@@ -2743,6 +2769,9 @@ class Game:
         dfout["d_possession_scores_allowed"] = dfout[d_possession_score_cols].sum(
             axis=1
         )
+        dfout["possessions_team"] = possessions_team
+        dfout["o_possessions_team"] = o_possessions_team
+        dfout["d_possessions_team"] = d_possessions_team
 
         return dfout[
             [
@@ -2752,6 +2781,9 @@ class Game:
                 "o_possession_scores",
                 "d_possessions",
                 "d_possession_scores_allowed",
+                "possessions_team",
+                "o_possessions_team",
+                "d_possessions_team",
             ]
         ]
 
@@ -2818,7 +2850,11 @@ class Game:
             team=team,
             opponent=opponent,
             game_date=game_name[:10],
-        )[["playerid", "name", "team", "opponent", "game_date",]].drop_duplicates()
+            year=self.year,
+            games=1,
+        )[
+            ["playerid", "name", "team", "opponent", "game_date", "year", "games"]
+        ].drop_duplicates()
         return dfout
 
     def get_player_stats_by_game(self, home=True):
@@ -2878,11 +2914,7 @@ class Game:
                 (dfout["team"] == team) & (dfout["game_date"] == game_date),
                 "minutes_played",
             ] = None
-        # TODO: Add percentage/per possession/etc. calcs to separate function that can be applied after stats have been aggregated
-        dfout = (
-            dfout.pipe(get_player_rates)
-            .pipe(round_player_stats)
-        )
+        dfout = dfout.pipe(get_player_rates)  # .pipe(round_player_stats)
 
         return dfout
 
