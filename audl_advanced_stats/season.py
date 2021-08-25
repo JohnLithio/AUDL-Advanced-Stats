@@ -317,22 +317,30 @@ class Season:
                         + " "
                         + g.get_home_team()["name"].iloc[0]
                     )
+                    home_team_abbrev = g.get_home_team()["abbrev"].iloc[0]
                     home_team_id = g.get_home_team()["team_id"].iloc[0]
                     away_team_name = (
                         g.get_away_team()["city"].iloc[0]
                         + " "
                         + g.get_away_team()["name"].iloc[0]
                     )
+                    away_team_abbrev = g.get_away_team()["abbrev"].iloc[0]
                     away_team_id = g.get_away_team()["team_id"].iloc[0]
                     if home_team_id in team_ids:
                         team_ids.pop(team_ids.index(home_team_id))
-                        team_data.append([home_team_id, home_team_name])
+                        team_data.append(
+                            [home_team_id, home_team_abbrev, home_team_name]
+                        )
                     if away_team_id in team_ids:
                         team_ids.pop(team_ids.index(away_team_id))
-                        team_data.append([away_team_id, away_team_name])
+                        team_data.append(
+                            [away_team_id, away_team_abbrev, away_team_name]
+                        )
 
                 self.teams = (
-                    pd.DataFrame(data=team_data, columns=["team_id", "team_name"])
+                    pd.DataFrame(
+                        data=team_data, columns=["team_id", "team_abbrev", "team_name"]
+                    )
                     .sort_values("team_name")
                     .reset_index(drop=True)
                 )
