@@ -1580,7 +1580,12 @@ class Game:
         return fig
 
     def visual_game_flow(self, color="point_outcome", home=True, qc=False):
-        """Gantt chart showing the substitution patterns of a team throughout 1 game."""
+        """Gantt chart showing the substitution patterns of a team throughout 1 game.
+
+        Args:
+            color (str): Can be point_outcome, o_point, point_hold, or num_turnovers.
+
+        """
         # Monkey patch for plotly so that we don't need to use datetimes for x-axis of gantt
         def my_process_dataframe_timeline(args):
             """Massage input for bar traces for px.timeline()."""
