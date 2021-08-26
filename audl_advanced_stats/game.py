@@ -452,7 +452,7 @@ class Game:
                     None,
                 ),
                 # Mark the first event of each point
-                point_start=lambda x: x["o_point"] | x["d_point"],
+                point_start=lambda x: (x["o_point"] == True) | (x["d_point"] == True),
                 # Count the number of points played and label each one
                 point_number=lambda x: np.where(
                     x["point_start"], x.groupby(["point_start"]).cumcount() + 2, None
