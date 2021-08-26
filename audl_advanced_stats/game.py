@@ -1,3 +1,10 @@
+"""Functions for retrieving and processing data for a single game.
+
+Most of the functions are held within the Game class, which is used within the Season class
+for compiling season-long statistics.
+
+"""
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -5,16 +12,16 @@ import plotly.graph_objects as go
 import requests
 import time
 from ast import literal_eval
-from bs4 import BeautifulSoup
 from json import loads
 from os.path import basename, join
 from pathlib import Path
-from sklearn.cluster import KMeans, Birch
+from sklearn.cluster import Birch
 from .constants import *
 from .utils import get_data_path, get_json_path, upload_to_bucket, download_from_bucket
 
 
 def get_player_rates(df):
+    """After counting stats have been compiled, calculate %s, rates, etc."""
     dfout = df.assign(
         throwaways_pp=lambda x: x["throwaways"] / x["o_possessions"],
         drops_pp=lambda x: x["drops"] / x["o_possessions"],
@@ -150,28 +157,9 @@ def get_player_rates(df):
     return dfout
 
 
-def round_player_stats(df):
-    # Remove decimal points
-    numeric_cols = [col for col in df if df.dtypes[col] == "float64"]
-    for col in numeric_cols:
-        if (
-            ("_percompletion" in col)
-            or ("_perthrowaway" in col)
-            or ("_perthrowattempt" in col)
-            or ("_percatchattempt" in col)
-            or ("_pp" in col)
-            or ("_ratio_" in col)
-        ) and ("yards" not in col):
-            df[col] = df[col].round(2)
-        elif "pct" in col:
-            df[col] = (df[col] * 100).round(0)
-        else:
-            df[col] = df[col].round(0)
-
-    return df
-
-
 class Game:
+    """Methods for downloading, processing, compiling, and visualizing data for a single game."""
+
     def __init__(
         self,
         game_url,
@@ -180,7 +168,7 @@ class Game:
         upload=False,
         download=False,
     ):
-        """Initial parameters of game data.
+        """Initialize parameters of game data.
 
         Args:
             game_url (str): URL to get game response data.
@@ -188,7 +176,9 @@ class Game:
                 advanced stats for a single season (2021).
                 Defaults to CURRENT_YEAR.
             data_path (str, optional): The path to the folder where data
-                will be stored.
+                will be stored. Defaults to creating a "data" folder in current directory.
+            upload (bool, optional): Whether to upload data to AWS bucket.
+            download (bool, optional): Whether to download data from AWS bucket if it exists.
 
         """
         # Inputs
@@ -312,6 +302,7 @@ class Game:
 
         Returns:
             list: list of dictionaries containing events
+
         """
         if self.home_events_raw is None:
             self.home_events_raw = self.get_events_raw(home=True)
@@ -322,6 +313,7 @@ class Game:
 
         Returns:
             list: list of dictionaries containing events
+
         """
         if self.away_events_raw is None:
             self.away_events_raw = self.get_events_raw(home=False)
@@ -425,6 +417,7 @@ class Game:
         return df
 
     def get_events_basic_info(self, df, home):
+        """Get general info about the game such as game_id and team_ids."""
         # Set parameters for home or away
         if home:
             team = self.get_home_team()
@@ -446,6 +439,7 @@ class Game:
         return df
 
     def get_events_possession_labels(self, df):
+        """Classify possessions and points by their number and outcome."""
         df = (
             df.assign(
                 # Classify each point as O or D point
@@ -458,7 +452,7 @@ class Game:
                     None,
                 ),
                 # Mark the first event of each point
-                point_start=lambda x: (x["o_point"] == True) | (x["d_point"] == True),
+                point_start=lambda x: x["o_point"] | x["d_point"],
                 # Count the number of points played and label each one
                 point_number=lambda x: np.where(
                     x["point_start"], x.groupby(["point_start"]).cumcount() + 2, None
@@ -633,6 +627,7 @@ class Game:
         return df
 
     def get_events_pull_info(self, df):
+        """Convert pull hangtime from milliseconds to seconds."""
         df = df.assign(
             # Convert pull hangtime from milliseconds to seconds
             hangtime=lambda x: x["ms"]
@@ -641,6 +636,7 @@ class Game:
         return df
 
     def get_events_stalls(self, df):
+        """Fill in the x/y positions for stalls."""
         # Set x and y positions for stalls
         stalls = (
             df.query("t==[17, 20]")
@@ -678,6 +674,7 @@ class Game:
         return df
 
     def get_events_o_penalties(self, df):
+        """Fill in the x/y positions for offensive penalties."""
         # Adjust x and y positions for penalties against the offense
         o_penalties = (
             df.query("t==[10,20]")
@@ -717,6 +714,7 @@ class Game:
         return df
 
     def get_events_d_penalties(self, df):
+        """Fill in the x/y positions for defensive penalties."""
         # Adjust x and y positions for penalties against the defense
         d_penalties = (
             df.query("t==[12,20]")
@@ -762,6 +760,7 @@ class Game:
         return df
 
     def fill_missing_info(self, df):
+        """Ensure certain types of events are all labeled with a possession number."""
         return df.assign(
             x=lambda x: np.where(
                 x["t"].isin([7, 8, 10, 12, 17, 19, 20, 22]),
@@ -781,6 +780,7 @@ class Game:
         )
 
     def get_events_yardage(self, df):
+        """Calculate the change in yardage between events that moved the disc."""
         # Get the x,y position for the next throwaway, travel, defensive foul, drop, completion, or score
         next_event = (
             df.query("t==[7,8,10,12,17,19,20,22]")
@@ -841,6 +841,7 @@ class Game:
         return df
 
     def get_events_periods(self, df):
+        """Label the period for all events."""
         df = df.assign(
             period=lambda x: np.where(
                 x["t"].isin([23, 24, 25, 26, 27, 28]), x["t"] - 22, None
@@ -849,6 +850,7 @@ class Game:
         return df
 
     def get_events_times(self, df):
+        """Label the start and end time for each segment separated by end of period, point, injury, or timeout."""
         # Set the times for the first and last event of each period
         df = (
             df.assign(
@@ -915,10 +917,12 @@ class Game:
         return df
 
     def get_player_columns(self, df):
+        """Split a column w/ lists of playerids into a separate column for each id."""
         s = df["l"].explode()
         return df.join(pd.crosstab(s.index, s))
 
     def get_events_lineups(self, df):
+        """Create a column for each player to indicate if they were on the field for each event.."""
         df = (
             df.assign(
                 # Fill-in lineup info for every event
@@ -930,6 +934,7 @@ class Game:
         return df
 
     def get_events_throw_classifications(self, df):
+        """Classify each throw as huck, dump, etc."""
         # TODO: Try clustering analysis for these
         df["centering_pass"] = (
             (df["t_after"].isin([20]))  # Completed pass
@@ -988,7 +993,7 @@ class Game:
         return df
 
     def play_description(self, df, home=True):
-        """Create a description of the play."""
+        """Create a human-readable description of the play."""
         if home:
             roster = self.get_home_roster()
         else:
@@ -1220,6 +1225,10 @@ class Game:
         )
 
     def get_player_segments(self, roster, events, qc=False):
+        """Transform data to get which players were on the field for each time segment.
+
+        Used for creating the game flow viz and calculating playing time.
+        """
         # Columns we'll keep for plotting
         final_cols = [
             "playerid",
@@ -1305,7 +1314,7 @@ class Game:
         return times, psegs
 
     def get_player_clusters(self, times, psegs):
-        """Separate team into 3 clusters (O, D1, D2) based on points played together."""
+        """Separate team into clusters (usually O, D1, D2) based on points played together."""
         # Sort each player into 1 of 3 clusters based on which segments they played
         #    3 segments were chosen to mimic the common pattern of O, D1, and D2
         X = psegs.values
@@ -1379,7 +1388,7 @@ class Game:
         return player_clusters
 
     def get_game_flow_margins(self):
-        """Get the margin properties based on the length of player names."""
+        """Get the margin properties for game flow viz based on the length of player names."""
         # Get all players who were in the game on either team
         events = pd.concat(
             [self.get_home_events(qc=False), self.get_away_events(qc=False)]
@@ -1821,14 +1830,12 @@ class Game:
         return fig
 
     def visual_possession_map_horizontal(self, possession_number, home=True):
-        """Map of all throws in a possession by 1 team."""
+        """Map of all throws in a possession by 1 team and display field horizontally."""
         # Get data based on home/away team selection
         if home:
             events = self.get_home_events(qc=False)
-            roster = self.get_home_roster()
         else:
             events = self.get_away_events(qc=False)
-            roster = self.get_away_roster()
 
         # Only keep some events
         df = (
@@ -2056,14 +2063,12 @@ class Game:
         return fig
 
     def visual_possession_map_vertical(self, possession_number, home=True):
-        """Map of all throws in a possession by 1 team."""
+        """Map of all throws in a possession by 1 team and display field vertically."""
         # Get data based on home/away team selection
         if home:
             events = self.get_home_events(qc=False)
-            roster = self.get_home_roster()
         else:
             events = self.get_away_events(qc=False)
-            roster = self.get_away_roster()
 
         # Only keep some events
         df = (
@@ -2291,6 +2296,7 @@ class Game:
         return fig
 
     def flatten_columns(self, df):
+        """Combine hierarchical column index into single list of columns."""
         df.columns = ["_".join(col).rstrip("_") for col in df.columns.values]
         return df
 
@@ -2690,6 +2696,9 @@ class Game:
         start_only=False means we only count who was on at the end of the possession.
 
         """
+        # TODO: Filter out end of quarter possessions
+        #       - Everything that started w/ less than x seconds in quarter?
+        #       - All non-scores that ended w/ less than x seconds? And started w/ less than y seconds?
         possessions_played = []
         # Get all player IDs for the team in this game
         players = [x for x in list(df) if x.isdigit()]
@@ -2788,6 +2797,7 @@ class Game:
         ]
 
     def get_player_time(self, roster, events):
+        """Get the playing time in minutes for each player."""
         times, psegs = self.get_player_segments(roster=roster, events=events)
         dfout = (
             (times.groupby("playerid")["elapsed"].sum() / 60)
@@ -2798,6 +2808,7 @@ class Game:
         return dfout
 
     def get_player_throw_types(self, df):
+        """Get the number of each throw type (huck, dump, etc.) for each player."""
         df_completion = (
             df.query("t_after==[20, 22]")
             .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
@@ -2842,6 +2853,7 @@ class Game:
         return dfout
 
     def get_player_info(self, roster, team, opponent, game_name):
+        """Get general info about each player."""
         dfout = roster.assign(
             playerid=lambda x: x["id"].astype(int).astype(str),
             name=lambda x: x["first_name"].str.strip()
@@ -2851,13 +2863,15 @@ class Game:
             opponent=opponent,
             game_date=game_name[:10],
             year=self.year,
-            games=1,
+            games=1,  # Used for calculating # of games in season-long stats
         )[
             ["playerid", "name", "team", "opponent", "game_date", "year", "games"]
         ].drop_duplicates()
         return dfout
 
     def get_player_stats_by_game(self, home=True):
+        """Combine all player stats into a single dataframe."""
+        # TODO: Add pull data
         if home:
             events = self.get_home_events()
             roster = self.get_home_roster()
@@ -2914,30 +2928,35 @@ class Game:
                 (dfout["team"] == team) & (dfout["game_date"] == game_date),
                 "minutes_played",
             ] = None
-        dfout = dfout.pipe(get_player_rates)  # .pipe(round_player_stats)
+        dfout = dfout.pipe(get_player_rates)
 
         return dfout
 
     def get_team_stats_by_game(self):
-        # Completions
-        # Hucks
+        """Combine all team stats into a single dataframe."""
+        # General - team, year, opponent/date/games
+        # Wins/losses/win%
+        # Pts played, o/d
+        # goals, goals against
+        # Completions, cmp%
+        # turnovers, blocks, yards
+        # O-point hold pct, d-point break pct
+        # Plus/Minus overview
+        # Goals, throwaways, drops, stalls, blocks, o poss, d poss, goals pp, t pp, d pp, s pp, blk pp
+        # Playing time
+        # pts, o pts, d pts, poss played, o poss, d poss
+        # Usage - remove
+        # Other
+        # seconds per throw? Maybe only possible if no turns or after a timeout. Would reflect both distance and time held
+        # Pace - pts per game, possessions per game, avg. o-point duration, avg. d-point duration
         # Holds
         # Breaks
         # Red Zone
-        # Blocks
-        # Turns
         # Time of possession
-        # Y raw Yds Rcv (and per throw)
-        # Y Yds Rcv (and per throw)
-        # X Yds Rcv (and per throw)
-        # Total raw Yds Rcv (and per throw)
-        # Total Yds Rcv  (and per throw)
-        # Y raw Yds Thr (and per throw)
-        # Y Yds Thr (and per throw)
-        # X Yds Thr (and per throw)
-        # Total raw Yds Thr (and per throw)
-        # Total Yds Thr (and per throw)
-        # seconds per throw? Maybe only possible if no turns or after a timeout. Would reflect both distance and time held
+        # Num. of throws per possession
+        # Estimate of width of field used?
+        # O-point score pct w/ no turns w/ <1 minute left
+        # D-point opponent score pct w/ no turns w/ <1 minute left
         pass
 
     # TODO What is the q attribute? It's 1 sometimes. In MIN-MAD, it was 1 for a score where the x and y vals were way off. q=questionable stat-keeping? Present on own-team score.
@@ -2946,3 +2965,4 @@ class Game:
     # TODO What is the lr attribute? True or False. Present for end of 4th quarter. Present for week 1 MAD vs MIN
     # TODO What is the h attribute? 1 on some scores and 1 block in TB-BOS.
     # TODO Align docstrings with some auto documentation
+    # TODO Create separate class for statistics

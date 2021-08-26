@@ -1,9 +1,10 @@
+"""General functions that are used in different classes."""
+
 import boto3
 import botocore
 import time
-from os import environ
 from os import environ, makedirs
-from os.path import join, exists, dirname, relpath, basename
+from os.path import join, exists, dirname, relpath
 from pathlib import Path
 from .constants import *
 
@@ -71,12 +72,11 @@ def download_from_bucket(file_path):
 
 
 def download_folder_from_bucket(file_path):
-    """
-    Download the contents of a folder directory
+    """Download the contents of a folder directory from AWS bucket.
+
     Args:
-        bucket_name: the name of the s3 bucket
-        s3_folder: the folder path in the s3 bucket
-        local_dir: a relative or absolute directory path in the local file system
+        file_path: a relative or absolute directory path in the local file system
+
     """
     s3 = boto3.resource(
         "s3",

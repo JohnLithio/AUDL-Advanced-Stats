@@ -1,17 +1,17 @@
+"""Download and process season-long data, compile stats, and creates visuals."""
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-from ast import literal_eval
 from bs4 import BeautifulSoup
-from json import loads
-from os.path import basename, join
+from os.path import join
 from pathlib import Path
 from plotly.subplots import make_subplots
 from re import search
 from .constants import *
-from .game import Game, get_player_rates, round_player_stats
+from .game import Game, get_player_rates
 from .utils import (
     get_data_path,
     get_json_path,
@@ -35,6 +35,8 @@ class Season:
                 Defaults to CURRENT_YEAR.
             data_path (str, optional): The path to the folder where data
                 will be stored.
+            upload (bool, optional): Whether to upload data to AWS bucket.
+            download (bool, optional): Whether to download data from AWS bucket if it exists.
 
         """
         # Inputs
@@ -437,7 +439,8 @@ class Season:
 
         return self.players
 
-    def get_player_stats_by_game(self, upload=False, download=False):
+    def get_player_stats_by_game(self, upload=None, download=None):
+        """Compile all player game stats for the season into single dataframe."""
         if self.player_stats_by_game is None:
             if upload is None:
                 upload = self.upload
@@ -482,10 +485,12 @@ class Season:
         return self.player_stats_by_game
 
     def get_team_stats_by_game(self):
+        """Compile all team game stats for the season into single dataframe."""
         # TODO: Season team stats by game
         pass
 
-    def get_player_stats_by_season(self, upload=False, download=False):
+    def get_player_stats_by_season(self, upload=None, download=None):
+        """Compile and aggregate all player stats for the season into single dataframe."""
         if self.player_stats_by_season is None:
             if upload is None:
                 upload = self.upload
@@ -527,6 +532,7 @@ class Season:
         return self.player_stats_by_season
 
     def get_team_stats_by_season(self):
+        """Compile and aggregate all team stats for the season into single dataframe."""
         # TODO: Season team stats
         pass
 
@@ -760,7 +766,6 @@ class Season:
         )
 
         # Set layout properties
-        height = 530
         left_margin = 40
         fighm.update_layout(
             # Remove axis titles
@@ -787,9 +792,6 @@ class Season:
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=height,
-            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -804,7 +806,6 @@ class Season:
         hovertext_hm = "%{customdata}<extra></extra>"
         fighm.update_traces(hovertemplate=hovertext_hm)
 
-        hyratio = df.groupby(["y_cut_final"])["count"].sum().max()
         # Create histograms to display frequency of events near heatmap
         fighy = px.histogram(
             df,
@@ -824,27 +825,20 @@ class Season:
             yaxis_title=None,
             # Add tick labels to fig
             yaxis=dict(
-                # range=[-27, 30],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
-                # scaleanchor="x",
-                # scaleratio=1 / hyratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
-                # range=[-1, 121],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=100,
-            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -859,7 +853,6 @@ class Season:
         hovertext_hy = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
         fighy.update_traces(hovertemplate=hovertext_hy)
 
-        hxratio = df.groupby(["x_cut_final"])["count"].sum().max()
         fighx = px.histogram(
             df,
             y="x_cut_final",
@@ -879,28 +872,21 @@ class Season:
             yaxis_title=None,
             # Add tick labels to fig
             yaxis=dict(
-                # range=[-27, 30],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 autorange="reversed",
                 fixedrange=True,
-                # scaleanchor="x",
-                # scaleratio=hxratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
-                # range=[-1, 121],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=height - 34,
-            # width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1147,7 +1133,6 @@ class Season:
         )
 
         # Set layout properties
-        height = 530
         left_margin = 40
         fighm.update_layout(
             # Remove axis titles
@@ -1173,9 +1158,6 @@ class Season:
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=height,
-            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1190,7 +1172,6 @@ class Season:
         hovertext_hm = "%{customdata}<extra></extra>"
         fighm.update_traces(hovertemplate=hovertext_hm)
 
-        hyratio = df.groupby(["y_cut_final"])["count"].sum().max()
         # Create histograms to display frequency of events near heatmap
         fighy = px.histogram(
             df,
@@ -1210,27 +1191,20 @@ class Season:
             yaxis_title=None,
             # Add tick labels to fig
             yaxis=dict(
-                # range=[-27, 30],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
-                # scaleanchor="x",
-                # scaleratio=1 / hyratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
-                # range=[-1, 121],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=100,
-            # width=height * 120 / 54,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1245,7 +1219,6 @@ class Season:
         hovertext_hy = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
         fighy.update_traces(hovertemplate=hovertext_hy)
 
-        hxratio = df.groupby(["x_cut_final"])["count"].sum().max()
         fighx = px.histogram(
             df,
             x="x_cut_final",
@@ -1264,27 +1237,20 @@ class Season:
             yaxis_title=None,
             # Add tick labels to fig
             yaxis=dict(
-                # range=[-27, 30],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
-                # scaleanchor="x",
-                # scaleratio=hxratio,
             ),
             # Add tick labels to fig
             xaxis=dict(
-                # range=[-1, 121],
                 showticklabels=False,
                 ticks="",
                 showgrid=False,
                 zeroline=False,
                 fixedrange=True,
             ),
-            # # Set figure size
-            # height=height - 34,
-            # width=100,
             # Transparent background
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
@@ -1303,7 +1269,6 @@ class Season:
 
     def visual_field_heatmap_subplots_horizontal(self, fighm, fighx, fighy):
         """Combine heatmap and histograms into single plot."""
-
         fig = make_subplots(
             rows=2,
             cols=2,
@@ -1487,7 +1452,6 @@ class Season:
 
     def visual_field_heatmap_subplots_vertical(self, fighm, fighx, fighy):
         """Combine heatmap and histograms into single plot."""
-
         fig = make_subplots(
             rows=2,
             cols=2,
@@ -1655,7 +1619,7 @@ class Season:
 
     def get_game_qc(self):
         """Get QC results for each game.
-        
+
         Segments in each game without 7 players.
         Events in raw data without 7 players.
         Segments in each game with a negative elapsed number of seconds.

@@ -1,6 +1,13 @@
+"""Global constants to be used in the game and season files."""
+
+# Don't need this if you're just going to store the data locally
 AWS_BUCKET_NAME = "audl-heroku-data"
 CURRENT_YEAR = 2021
+
+# URL to scrape all the games
 SCHEDULE_URL = "https://theaudl.com/league/schedule"
+
+# Endpoint for getting advanced stats data
 STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
 
 # Ratios for heatmap subplots
@@ -9,6 +16,8 @@ HEATMAP_RATIO_H_Y = 0.8
 HEATMAP_RATIO_V_X = 0.8
 HEATMAP_RATIO_V_Y = 0.9
 
+# List of event type encodings from what I figured out.
+# Should confirm with Ben Nelson about this though.
 EVENT_TYPES = {
     1: "Start of O-Point",
     2: "Start of D-Point",
@@ -37,7 +46,7 @@ EVENT_TYPES = {
     25: "End of 3rd Quarter",
     26: "End of 4th Quarter",
     27: "End of 1st Overtime",
-    # 28: "",
+    28: "End of 2nd Overtime",
     # 29: "",
     # 30: "",
     # 31: "",
@@ -54,33 +63,11 @@ EVENT_TYPES = {
     42: "Opponent Injury",
     43: "Injury",
     44: "Offsides",
-    45: "Opponent Offsides",  # TODO: What event is this? In 2021-07-09 AUS at DAL
+    45: "Opponent Offsides",
     # 46: "",
-    # 47: "",
-    # 48: "",
-    # 49: "",
-    # 50: "",
-    # 51: "",
-    # 52: "",
-    # 53: "",
-    # 54: "",
-    # 55: "",
-    # 56: "",
-    # 57: "",
-    # 58: "",
-    # 59: "",
-    # 60: "",
-    # 61: "",
-    # 62: "",
-    # 63: "",
-    # 64: "",
-    # 65: "",
-    # 66: "",
-    # 67: "",
-    # 68: "",
-    # 69: "",
 }
 
+# General descriptions of the end of possessions
 EVENT_TYPES_GENERAL = {
     5: "Turnover",
     6: "Score",
