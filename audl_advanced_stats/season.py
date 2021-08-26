@@ -564,7 +564,14 @@ class Season:
         game_ids=None,
         second_graph=False,
     ):
-        """View frequency of possession, scores, turns on the field, similar to shot chart."""
+        """View frequency of possession, scores, turns on the field, similar to shot chart.
+
+        Args:
+            outcome_measure (str): Can be throw_outcome or possession_outcome_general.
+            outcome (str): Can be Completion or Turnover.
+            metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
+
+        """
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
 
         # Set whether heat map should be for the throw or the catch
@@ -931,7 +938,14 @@ class Season:
         game_ids=None,
         second_graph=False,
     ):
-        """View frequency of possession, scores, turns on the field, similar to shot chart."""
+        """View frequency of possession, scores, turns on the field, similar to shot chart.
+
+        Args:
+            outcome_measure (str): Can be throw_outcome or possession_outcome_general.
+            outcome (str): Can be Completion or Turnover.
+            metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
+
+        """
         df = self.get_games(small_file=True, build_new_file=False, qc=False,)
 
         # Set whether heat map should be for the throw or the catch
