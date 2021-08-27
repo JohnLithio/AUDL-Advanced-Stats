@@ -1698,7 +1698,7 @@ class Season:
             )
         )
 
-        fig = px.line(
+        fig = px.bar(
             df,
             x="Time at Start of Point",
             y="Score Pct",
