@@ -64,6 +64,7 @@ class Season:
 
         # All processed data
         self.games = None
+        self.start_of_opoints = None
         self.teams = None
         self.players = None
         self.player_stats_by_game = None
@@ -187,6 +188,30 @@ class Season:
     ):
         """Download and process all game data."""
         if self.games is None:
+            needed_columns = [
+                "game_id",
+                "team_id",
+                "opponent_team_id",
+                "period",
+                "t",
+                "t_after",
+                "r",
+                "r_after",
+                "x",
+                "y",
+                "x_after",
+                "y_after",
+                "s_before",
+                "o_point",
+                "possession_outcome_general",
+                "throw_outcome",
+                "yyards",
+                "yyards_raw",
+                "xyards",
+                "xyards_raw",
+                "yards",
+                "yards_raw",
+            ]
             if upload is None:
                 upload = self.upload
             if download is None:
@@ -245,36 +270,41 @@ class Season:
                 self.games = pd.DataFrame(pd.concat(all_games))
                 self.games.reset_index(drop=True).to_feather(file_name)
 
-                needed_columns = [
-                    "game_id",
-                    "team_id",
-                    "opponent_team_id",
-                    "t",
-                    "t_after",
-                    "r",
-                    "r_after",
-                    "x",
-                    "y",
-                    "x_after",
-                    "y_after",
-                    "o_point",
-                    "possession_outcome_general",
-                    "throw_outcome",
-                    "yyards",
-                    "yyards_raw",
-                    "xyards",
-                    "xyards_raw",
-                    "yards",
-                    "yards_raw",
-                ]
                 self.games[needed_columns].reset_index(drop=True).to_feather(
                     file_name_small
                 )
                 if upload:
                     upload_to_bucket(file_name)
                     upload_to_bucket(file_name_small)
+        if small_file:
+            return self.games[needed_columns]
+        else:
+            return self.games
 
-        return self.games
+    def get_start_of_opoints(
+        self, upload=None, download=None,
+    ):
+        """Download and process all game data."""
+        if self.start_of_opoints is None:
+            if upload is None:
+                upload = self.upload
+            if download is None:
+                download = self.download
+
+            file_name = join(self.games_path, f"start_of_opoints.feather")
+
+            # If file doesn't exist locally, try to retrieve it from AWS
+            if not Path(file_name).is_file() and download:
+                download_from_bucket(file_name)
+
+            # If file exists locally, load it
+            if Path(file_name).is_file():
+                self.start_of_opoints = pd.read_feather(file_name)
+            else:
+                self.start_of_opoints = self.get_games(small_file=True).query("t==1")
+                self.start_of_opoints.reset_index().to_feather(file_name)
+
+        return self.start_of_opoints
 
     def get_teams(self, upload=None, download=None, qc=False):
         """Get all teams and team IDs from game data and save it."""
@@ -1656,9 +1686,7 @@ class Season:
     ):
         """Create a graph of score probability vs time of the point start."""
         df = (
-            self.get_games(small_file=False)
-            .query("t==1")
-            .query(f"period=={periods}")
+            self.get_start_of_opoints().query(f"period=={periods}")
             # Remove games with bad timestamps
             .query(
                 "~((game_id==2658) & (team_id==3)) & ~((game_id==2661) & (team_id==10))"
