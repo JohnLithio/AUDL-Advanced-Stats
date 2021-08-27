@@ -1631,6 +1631,86 @@ class Season:
 
         return fig
 
+    def _sec_to_min(self, seconds):
+        """Convert seconds integer into minutes:seconds e.g. 121->2:01."""
+        minutes = int(seconds / 60)
+        seconds_left = seconds % 60
+        return f"{minutes}:{seconds_left:02d}"
+
+    def _bin_labels(self, bins):
+        """Create bin labels for a list of bin edges that are in seconds."""
+        return [
+            f"{self._sec_to_min(bins[i+1])}-{self._sec_to_min(x+1)}"
+            for i, x in enumerate(bins[:-1])
+        ]
+
+    def _pct_and_total(self, df):
+        pct = df.groupby(level=["s_before_bucket"]).apply(lambda y: y / y.sum())
+        total = df.groupby(level=["s_before_bucket"]).apply(lambda y: y - y + y.sum())
+        df["pct"] = pct
+        df["total"] = total
+        return df
+
+    def visual_end_of_quarter(
+        self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,],
+    ):
+        """Create a graph of score probability vs time of the point start."""
+        df = self.get_games(small_file=False).query("t==1").query(f"period=={periods}")
+
+        if team_ids is not None:
+            df = df.query(f"team_id=={team_ids}")
+        if opposing_team_ids is not None:
+            df = df.query(f"opponent_team_id=={opposing_team_ids}")
+
+        bins = [-1, 10, 20, 30, 40, 50, 60, 120, 240, 480, 720]
+        labels = self._bin_labels(bins)
+
+        df = (
+            df.assign(
+                s_before_bucket=lambda x: pd.Categorical(
+                    pd.cut(x["s_before"], bins=bins, labels=labels),
+                    categories=reversed(labels),
+                    ordered=True,
+                ),
+            )
+            .groupby(["s_before_bucket", "possession_outcome_general"])
+            .size()
+            .rename("cnt")
+            .to_frame()
+            .pipe(self._pct_and_total)
+            .reset_index()
+            .query("possession_outcome_general=='Score'")
+            .rename(
+                columns={
+                    "s_before_bucket": "Time at Start of Possession",
+                    "pct": "Score %",
+                    "cnt": "# of Scores",
+                    "total": "# of Points",
+                }
+            )
+        )
+
+        fig = px.line(
+            df,
+            x="Time at Start of Possession",
+            y="Score %",
+            hover_data=["# of Scores", "# of Possessions"],
+        )
+
+        fig.update_layout(
+            # Transparent background
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            # Change font
+            font_family="TW Cen MT",
+            hoverlabel_font_family="TW Cen MT",
+            # Set margins
+            # margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
+            yaxis_tickformat=".0%",
+        )
+
+        return fig
+
     def get_game_qc(self):
         """Get QC results for each game.
 
