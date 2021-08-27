@@ -1682,7 +1682,7 @@ class Season:
             .query("possession_outcome_general=='Score'")
             .rename(
                 columns={
-                    "s_before_bucket": "Time at Start of Possession",
+                    "s_before_bucket": "Time at Start of Point",
                     "pct": "Score %",
                     "cnt": "# of Scores",
                     "total": "# of Points",
@@ -1692,9 +1692,9 @@ class Season:
 
         fig = px.line(
             df,
-            x="Time at Start of Possession",
+            x="Time at Start of Point",
             y="Score %",
-            hover_data=["# of Scores", "# of Possessions"],
+            hover_data=["# of Scores", "# of Points"],
         )
 
         fig.update_layout(
