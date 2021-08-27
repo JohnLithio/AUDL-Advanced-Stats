@@ -1655,7 +1655,15 @@ class Season:
         self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,],
     ):
         """Create a graph of score probability vs time of the point start."""
-        df = self.get_games(small_file=False).query("t==1").query(f"period=={periods}")
+        df = (
+            self.get_games(small_file=False)
+            .query("t==1")
+            .query(f"period=={periods}")
+            # Remove games with bad timestamps
+            .query(
+                "~((game_id==2658) & (team_id==3)) & ~((game_id==2661) & (team_id==10))"
+            )
+        )
 
         if team_ids is not None:
             df = df.query(f"team_id=={team_ids}")
@@ -1683,9 +1691,9 @@ class Season:
             .rename(
                 columns={
                     "s_before_bucket": "Time at Start of Point",
-                    "pct": "Score %",
-                    "cnt": "Num. of Scores",
-                    "total": "Num. of Points",
+                    "pct": "Score Pct",
+                    "cnt": "Num of Scores",
+                    "total": "Num of Points",
                 }
             )
         )
@@ -1693,8 +1701,8 @@ class Season:
         fig = px.line(
             df,
             x="Time at Start of Point",
-            y="Score %",
-            hover_data=["Num. of Scores", "Num. of Points"],
+            y="Score Pct",
+            hover_data=["Num of Scores", "Num of Points"],
         )
 
         fig.update_layout(
