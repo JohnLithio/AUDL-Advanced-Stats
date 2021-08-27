@@ -1651,7 +1651,7 @@ class Season:
         df["total"] = total
         return df
 
-    def visual_end_of_quarter(
+    def visual_end_of_period(
         self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,],
     ):
         """Create a graph of score probability vs time of the point start."""
@@ -1684,8 +1684,8 @@ class Season:
                 columns={
                     "s_before_bucket": "Time at Start of Point",
                     "pct": "Score %",
-                    "cnt": "# of Scores",
-                    "total": "# of Points",
+                    "cnt": "Num. of Scores",
+                    "total": "Num. of Points",
                 }
             )
         )
@@ -1694,7 +1694,7 @@ class Season:
             df,
             x="Time at Start of Point",
             y="Score %",
-            hover_data=["# of Scores", "# of Points"],
+            hover_data=["Num. of Scores", "Num. of Points"],
         )
 
         fig.update_layout(
