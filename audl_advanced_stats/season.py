@@ -1715,6 +1715,14 @@ class Season:
             # Set margins
             # margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
             yaxis_tickformat=".0%",
+            # Add title
+            title={
+                "text": "Probability of Scoring on O-Point w/ No Turnovers",
+                "y": 0.9,
+                "x": 0.5,
+                "xanchor": "center",
+                "yanchor": "top",
+            },
         )
 
         return fig
