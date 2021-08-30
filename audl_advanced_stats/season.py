@@ -69,7 +69,6 @@ class Season:
         self.players = None
         self.player_stats_by_game = None
         self.team_stats_by_game = None
-        self.player_stats_by_season = None
         self.team_stats_by_season = None
 
         # QC
@@ -134,7 +133,9 @@ class Season:
                     ).get_response()
                     if game_response is None:
                         game_exists = False
+                        playoffs = False
                     else:
+                        # Determine whether the game has happened yet
                         tsghome = game_response.get("tsgHome", dict())
                         if tsghome is None:
                             game_exists = False
@@ -144,6 +145,19 @@ class Season:
                             game_exists = True
                         else:
                             game_exists = False
+
+                        # Determine if it's a playoff game
+                        playoffs = not game_response.get("game", dict()).get(
+                            "reg_season", False
+                        )
+
+                        # Division championship games are not currently coded as playoffs in the response,
+                        # but they should be
+                        if game_response.get("game", dict()).get(
+                            "id", -1
+                        ) in PLAYOFF_GAMES.get(self.year, []):
+                            playoffs = True
+
                     game_list.append(
                         [
                             search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
@@ -151,6 +165,7 @@ class Season:
                             search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
                             x,
                             game_exists,
+                            playoffs,
                         ]
                     )
 
@@ -164,6 +179,7 @@ class Season:
                             "home_team",
                             "url",
                             "events_exist",
+                            "playoffs",
                         ],
                     )
                     .drop_duplicates()
@@ -187,31 +203,31 @@ class Season:
         qc=False,
     ):
         """Download and process all game data."""
+        needed_columns = [
+            "game_id",
+            "team_id",
+            "opponent_team_id",
+            "period",
+            "t",
+            "t_after",
+            "r",
+            "r_after",
+            "x",
+            "y",
+            "x_after",
+            "y_after",
+            "s_before",
+            "o_point",
+            "possession_outcome_general",
+            "throw_outcome",
+            "yyards",
+            "yyards_raw",
+            "xyards",
+            "xyards_raw",
+            "yards",
+            "yards_raw",
+        ]
         if self.games is None:
-            needed_columns = [
-                "game_id",
-                "team_id",
-                "opponent_team_id",
-                "period",
-                "t",
-                "t_after",
-                "r",
-                "r_after",
-                "x",
-                "y",
-                "x_after",
-                "y_after",
-                "s_before",
-                "o_point",
-                "possession_outcome_general",
-                "throw_outcome",
-                "yyards",
-                "yyards_raw",
-                "xyards",
-                "xyards_raw",
-                "yards",
-                "yards_raw",
-            ]
             if upload is None:
                 upload = self.upload
             if download is None:
@@ -519,47 +535,60 @@ class Season:
         # TODO: Season team stats by game
         pass
 
-    def get_player_stats_by_season(self, upload=None, download=None):
+    def get_player_stats_by_season(self, playoffs="all", upload=None, download=None):
         """Compile and aggregate all player stats for the season into single dataframe."""
-        if self.player_stats_by_season is None:
-            if upload is None:
-                upload = self.upload
-            if download is None:
-                download = self.download
+        if upload is None:
+            upload = self.upload
+        if download is None:
+            download = self.download
 
-            file_name = join(self.stats_path, "player_stats_by_season.feather")
-            # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file() and download:
-                download_from_bucket(file_name)
+        if playoffs == "all":
+            playoffs = [True, False]
+            playoffs_str = "all"
+        elif playoffs:
+            playoffs = [playoffs]
+            playoffs_str = "playoffs"
+        else:
+            playoffs = [playoffs]
+            playoffs_str = "reg"
 
-            # If file exists locally, load it
-            if Path(file_name).is_file():
-                self.player_stats_by_season = pd.read_feather(file_name)
+        file_name = join(
+            self.stats_path, f"player_stats_by_season_{playoffs_str}.feather"
+        )
+        # If file doesn't exist locally, try to retrieve it from AWS
+        if not Path(file_name).is_file() and download:
+            download_from_bucket(file_name)
 
-            else:
-                # Get player stats by game
-                df = self.get_player_stats_by_game(upload=upload, download=download)
-                info_cols = [
-                    "playerid",
-                    "name",
-                    "team",
-                    "opponent",
-                    "game_date",
-                    "year",
-                ]
-                stat_cols = [col for col in list(df) if col not in info_cols]
+        # If file exists locally, load it
+        if Path(file_name).is_file():
+            dfout = pd.read_feather(file_name)
 
-                self.player_stats_by_season = (
-                    df.groupby(["playerid", "name", "team", "year",])[stat_cols]
-                    .sum()
-                    .reset_index()
-                    .pipe(get_player_rates)
-                    # .pipe(round_player_stats)
-                )
+        else:
+            # Get player stats by game
+            df = self.get_player_stats_by_game(upload=upload, download=download)
+            info_cols = [
+                "playerid",
+                "name",
+                "team",
+                "opponent",
+                "game_date",
+                "year",
+                "playoffs",
+            ]
+            stat_cols = [col for col in list(df) if col not in info_cols]
 
-                self.player_stats_by_season.to_feather(file_name)
+            dfout = (
+                df.query(f"playoffs=={playoffs}")
+                .groupby(["playerid", "name", "team", "year",])[stat_cols]
+                .sum()
+                .reset_index()
+                .pipe(get_player_rates)
+                # .pipe(round_player_stats)
+            )
 
-        return self.player_stats_by_season
+            dfout.to_feather(file_name)
+
+        return dfout
 
     def get_team_stats_by_season(self):
         """Compile and aggregate all team stats for the season into single dataframe."""

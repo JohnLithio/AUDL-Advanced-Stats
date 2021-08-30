@@ -435,6 +435,8 @@ class Game:
             event_number=lambda x: x.index,
             # Convert events to human-readable labels
             event_name=lambda x: x["t"].map(EVENT_TYPES),
+            playoffs=self.get_game_info()["id"].iloc[0]
+            in PLAYOFF_GAMES.get(self.year, []),
         )
         return df
 
@@ -2857,7 +2859,7 @@ class Game:
 
         return dfout
 
-    def get_player_info(self, roster, team, opponent, game_name):
+    def get_player_info(self, roster, team, opponent, game_name, game_id):
         """Get general info about each player."""
         dfout = roster.assign(
             playerid=lambda x: x["id"].astype(int).astype(str),
@@ -2868,9 +2870,19 @@ class Game:
             opponent=opponent,
             game_date=game_name[:10],
             year=self.year,
+            playoffs=game_id in PLAYOFF_GAMES.get(self.year, []),
             games=1,  # Used for calculating # of games in season-long stats
         )[
-            ["playerid", "name", "team", "opponent", "game_date", "year", "games"]
+            [
+                "playerid",
+                "name",
+                "team",
+                "opponent",
+                "game_date",
+                "year",
+                "playoffs",
+                "games",
+            ]
         ].drop_duplicates()
         return dfout
 
@@ -2888,10 +2900,15 @@ class Game:
             team = self.get_away_team()["abbrev"].iloc[0]
             opponent = self.get_home_team()["abbrev"].iloc[0]
         game_name = self.get_game_info()["ext_game_id"].iloc[0]
+        game_id = self.get_game_info()["id"].iloc[0]
 
         dfout = (
             self.get_player_info(
-                roster=roster, team=team, opponent=opponent, game_name=game_name
+                roster=roster,
+                team=team,
+                opponent=opponent,
+                game_name=game_name,
+                game_id=game_id,
             )
             .merge(
                 self.get_player_points_played(df=events, start_only=True),
