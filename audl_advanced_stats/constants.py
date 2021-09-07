@@ -18,7 +18,7 @@ HEATMAP_RATIO_V_Y = 0.9
 
 # Playoff game IDs
 PLAYOFF_GAMES = {
-    2021: [2794, 2795,],
+    2021: [2794, 2795, 2796, 2797],
 }
 
 # List of event type encodings from what I figured out.
