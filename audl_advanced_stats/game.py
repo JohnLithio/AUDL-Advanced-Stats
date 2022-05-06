@@ -445,7 +445,7 @@ class Game:
         df = (
             df.assign(
                 # Classify each point as O or D point
-                o_point=lambda x: np.where(x["t"].isin([1]), True, None),
+                o_point=lambda x: np.where(x["t"].isin([1,50]), True, None),
                 # Sometimes the event for the start of a d-point is missing. One game had two pulls with a foul in-between.
                 d_point=lambda x: np.where(
                     x["t"].isin([2])
