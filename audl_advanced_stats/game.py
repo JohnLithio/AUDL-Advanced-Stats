@@ -2377,7 +2377,7 @@ class Game:
         d_point_turn_cols = [
             x for x in list(dfout) if ("d_point" in x) and ("at least 1 turn" in x)
         ]
-        dfout["total_points"] = dfout.sum(axis=1)
+        dfout["total_points"] = dfout.sum(axis=1, numeric_only=True)
         dfout["o_points"] = dfout[o_point_cols].sum(axis=1)
         dfout["d_points"] = dfout[d_point_cols].sum(axis=1)
         dfout["o_point_scores"] = dfout[o_point_score_cols].sum(axis=1)
@@ -2778,7 +2778,7 @@ class Game:
             for x in list(dfout)
             if ("defensive_possession" in x) and ("Score" in x) and ("Opponent" in x)
         ]
-        dfout["total_possessions"] = dfout.sum(axis=1)
+        dfout["total_possessions"] = dfout.sum(axis=1, numeric_only=True)
         dfout["o_possessions"] = dfout[o_possession_cols].sum(axis=1)
         dfout["d_possessions"] = dfout[d_possession_cols].sum(axis=1)
         dfout["o_possession_scores"] = dfout[o_possession_score_cols].sum(axis=1)
