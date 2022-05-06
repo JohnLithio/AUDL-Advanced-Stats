@@ -5,7 +5,7 @@ AWS_BUCKET_NAME = "audl-heroku-data"
 CURRENT_YEAR = 2021
 
 # URL to scrape all the games
-SCHEDULE_URL = "https://theaudl.com/league/schedule"
+SCHEDULE_URL = "https://theaudl.com/league/game-search?page={page}&years={year}"
 
 # Endpoint for getting advanced stats data
 STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
@@ -18,7 +18,7 @@ HEATMAP_RATIO_V_Y = 0.9
 
 # Playoff game IDs
 PLAYOFF_GAMES = {
-    2021: [2794, 2795, 2796, 2797],
+    2021: [2794, 2795, 2796, 2797, 2799, 2800, 2801, 2802],
 }
 
 # List of event type encodings from what I figured out.
