@@ -1471,7 +1471,7 @@ class Game:
             }
         )
 
-        df = start.append(df).append(end)
+        df = pd.concat([start, df, end])
 
         # Create line graph
         fig = px.line(
@@ -2105,7 +2105,8 @@ class Game:
             last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
 
             # Add row for last event
-            df = df.append(
+            df = pd.concat([
+                df,
                 pd.Series(
                     {
                         "x": last_row["x_after"],
@@ -2121,7 +2122,7 @@ class Game:
                     }
                 ),
                 ignore_index=True,
-            )
+            ])
 
             # Shift play descriptions and yardages
             df["play_description"] = df["play_description"].shift(1)
