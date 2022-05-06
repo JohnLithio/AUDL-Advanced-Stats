@@ -70,6 +70,14 @@ EVENT_TYPES = {
     44: "Offsides",
     45: "Opponent Offsides",
     # 46: "",
+    # 47: "",
+    # 48: "",
+    # 49: "",
+    50: "Game Start?",
+    # 51: "",
+    # 52: "",
+    # 53: "",
+    54: "Unknown",
 }
 
 # General descriptions of the end of possessions
