@@ -57,7 +57,7 @@ class Season:
         Path(self.stats_path).mkdir(parents=True, exist_ok=True)
 
         # URLs to retrieve data from
-        self.schedule_url = SCHEDULE_URL.format(year=self.year)
+        self.schedule_url = SCHEDULE_URL
         self.stats_url = STATS_URL
         self.weeks_urls = None
         self.game_info = None
@@ -88,7 +88,7 @@ class Season:
             #         page_url = self.schedule_url + page.get("href")[16:]
             #         pages.append(page_url)
 
-            self.paginated_urls = [self.schedule_url.format(page=i) for i in range(1, 25)]
+            self.paginated_urls = [self.schedule_url.format(page=i, year=self.year) for i in range(1, 25)]
 
         return self.paginated_urls
 
