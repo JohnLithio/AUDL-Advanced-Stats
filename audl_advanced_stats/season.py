@@ -57,7 +57,7 @@ class Season:
         Path(self.stats_path).mkdir(parents=True, exist_ok=True)
 
         # URLs to retrieve data from
-        self.schedule_url = SCHEDULE_URL
+        self.schedule_url = SCHEDULE_URL.format(year=self.year)
         self.stats_url = STATS_URL
         self.weeks_urls = None
         self.game_info = None
@@ -74,23 +74,23 @@ class Season:
         # QC
         self.game_qc = None
 
-    def get_weeks_urls(self):
-        """Get URLs for the schedule of each week of the season."""
-        if self.weeks_urls is None:
-            # Get urls for all weeks
-            schedule_page = requests.get(self.schedule_url)
-            schedule_soup = BeautifulSoup(schedule_page.text, "html.parser")
+    def get_paginated_urls(self):
+        """Get URLs for the schedule for every game of the season."""
+        if self.paginated_urls is None:
+            # # Get urls for all weeks
+            # schedule_page = requests.get(self.schedule_url.format(page=1))
+            # schedule_soup = BeautifulSoup(schedule_page.text, "html.parser")
 
-            # Extract urls from document
-            weeks = []
-            for week in schedule_soup.find_all("a"):
-                if "schedule" in week.get("href").lower():
-                    week_url = self.schedule_url + week.get("href")[16:]
-                    weeks.append(week_url)
+            # # Extract urls from document
+            # pages = []
+            # for page in schedule_soup.find_all("a"):
+            #     if "schedule" in page.get("href").lower():
+            #         page_url = self.schedule_url + page.get("href")[16:]
+            #         pages.append(page_url)
 
-            self.weeks_urls = weeks
+            self.paginated_urls = [self.schedule_url.format(page=i) for i in range(1, 25)]
 
-        return self.weeks_urls
+        return self.paginated_urls
 
     def get_game_info(self, override=False, upload=None, download=None):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
@@ -111,19 +111,20 @@ class Season:
 
             else:
                 games = []
-                for week_url in self.get_weeks_urls():
-                    # Get schedule for 1 week
-                    week_page = requests.get(week_url)
-                    week_soup = BeautifulSoup(week_page.text, "html.parser")
+                for page_url in self.get_paginated_urls():
+                    # Get schedule for 1 page
+                    page = requests.get(page_url)
+                    page_soup = BeautifulSoup(page.text, "html.parser")
 
-                    # Get all game URLs in 1 week
-                    for game_center in week_soup.find_all(
-                        "span", {"class": "audl-schedule-gc-link"}
+                    # Get all game URLs in 1 page
+                    for game_center in page_soup.find_all(
+                        "div", {"class": "svelte-game-header-links"}
                     ):
                         game_url = (
                             self.stats_url + game_center.find("a").get("href")[8:]
                         )
-                        games.append(game_url)
+                        if game_url not in games:
+                            games.append(game_url)
 
                 # Parse URLs to get game info
                 game_list = []
