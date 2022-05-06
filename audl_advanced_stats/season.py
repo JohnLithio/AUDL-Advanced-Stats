@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 from bs4 import BeautifulSoup
+from json import loads
 from os.path import join
 from pathlib import Path
 from plotly.subplots import make_subplots
@@ -59,7 +60,7 @@ class Season:
         # URLs to retrieve data from
         self.schedule_url = SCHEDULE_URL
         self.stats_url = STATS_URL
-        self.weeks_urls = None
+        self.paginated_urls = None
         self.game_info = None
 
         # All processed data
@@ -74,24 +75,6 @@ class Season:
         # QC
         self.game_qc = None
 
-    def get_paginated_urls(self):
-        """Get URLs for the schedule for every game of the season."""
-        if self.paginated_urls is None:
-            # # Get urls for all weeks
-            # schedule_page = requests.get(self.schedule_url.format(page=1))
-            # schedule_soup = BeautifulSoup(schedule_page.text, "html.parser")
-
-            # # Extract urls from document
-            # pages = []
-            # for page in schedule_soup.find_all("a"):
-            #     if "schedule" in page.get("href").lower():
-            #         page_url = self.schedule_url + page.get("href")[16:]
-            #         pages.append(page_url)
-
-            self.paginated_urls = [self.schedule_url.format(page=i, year=self.year) for i in range(1, 25)]
-
-        return self.paginated_urls
-
     def get_game_info(self, override=False, upload=None, download=None):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
         if self.game_info is None:
@@ -101,7 +84,7 @@ class Season:
                 download = self.download
 
             # If file doesn't exists locally, try to retrieve it from AWS
-            game_info_path = join(self.league_info_path, "game_info.feather")
+            game_info_path = join(self.league_info_path, f"game_info_{self.year}.feather")
             if not Path(game_info_path).is_file() and download and not override:
                 download_from_bucket(game_info_path)
 
@@ -111,20 +94,23 @@ class Season:
 
             else:
                 games = []
-                for page_url in self.get_paginated_urls():
-                    # Get schedule for 1 page
-                    page = requests.get(page_url)
-                    page_soup = BeautifulSoup(page.text, "html.parser")
+                games_per_page = 20
+                current_page = 1
+                num_pages = np.ceil(150/games_per_page)
 
-                    # Get all game URLs in 1 page
-                    for game_center in page_soup.find_all(
-                        "div", {"class": "svelte-game-header-links"}
-                    ):
-                        game_url = (
-                            self.stats_url + game_center.find("a").get("href")[8:]
-                        )
-                        if game_url not in games:
+                while current_page <= num_pages:
+
+                    game_info_raw = requests.get(self.schedule_url.format(page_num=current_page, year=self.year, games_per_page=games_per_page)).text
+                    game_info_dict = loads(game_info_raw)
+                    if current_page==1:
+                        num_pages = np.ceil(game_info_dict["total"]/games_per_page)
+                    for game_info in game_info_dict.get("games", []):
+                        if game_info["status"]=="Final":
+                            game_url = (
+                                self.stats_url + "game/" + game_info["gameID"]
+                            )
                             games.append(game_url)
+                    current_page += 1
 
                 # Parse URLs to get game info
                 game_list = []
@@ -234,8 +220,8 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name_small = join(self.games_path, f"all_games_small.feather")
-            file_name = join(self.games_path, f"all_games.feather")
+            file_name_small = join(self.games_path, f"all_games_small_{self.year}.feather")
+            file_name = join(self.games_path, f"all_games_{self.year}.feather")
             # Get either the file with all columns or only some
             if small_file:
                 all_games_file_name = file_name_small
@@ -308,7 +294,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.games_path, f"start_of_opoints.feather")
+            file_name = join(self.games_path, f"start_of_opoints_{self.year}.feather")
 
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
@@ -331,7 +317,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.league_info_path, "teams.feather")
+            file_name = join(self.league_info_path, f"teams_{self.year}.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -407,7 +393,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.league_info_path, "players.feather")
+            file_name = join(self.league_info_path, f"players_{self.year}.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -494,7 +480,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.stats_path, "player_stats_by_game.feather")
+            file_name = join(self.stats_path, f"player_stats_by_game_{self.year}.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -554,7 +540,7 @@ class Season:
             playoffs_str = "reg"
 
         file_name = join(
-            self.stats_path, f"player_stats_by_season_{playoffs_str}.feather"
+            self.stats_path, f"player_stats_by_season_{self.year}_{playoffs_str}.feather"
         )
         # If file doesn't exist locally, try to retrieve it from AWS
         if not Path(file_name).is_file() and download:
