@@ -5,7 +5,7 @@ AWS_BUCKET_NAME = "audl-heroku-data"
 CURRENT_YEAR = 2022
 
 # URL to scrape all the games
-SCHEDULE_URL = "https://theaudl.com/league/game-search?page={page}&years={year}"
+SCHEDULE_URL = "https://audl-stat-server.herokuapp.com/web-api/games?limit={games_per_page}&years={year}&page={page_num}"
 
 # Endpoint for getting advanced stats data
 STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
@@ -57,7 +57,7 @@ EVENT_TYPES = {
     # 31: "",
     # 32: "",
     # 33: "",
-    # 34: "",
+    34: "Unsportsmanlike Conduct",
     # 35: "",
     # 36: "",
     # 37: "",
@@ -73,11 +73,11 @@ EVENT_TYPES = {
     # 47: "",
     # 48: "",
     # 49: "",
-    50: "Game Start?",
-    # 51: "",
+    50: "Start of Game",
+    51: "End of Game Due to Weather",
     # 52: "",
-    # 53: "",
-    54: "Unknown",
+    53: "Play Resumed",
+    54: "Play Stopped",
 }
 
 # General descriptions of the end of possessions
