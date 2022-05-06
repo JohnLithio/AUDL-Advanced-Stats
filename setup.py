@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="audl_advanced_stats",
-    version="0.0.1",
+    version="0.0.2",
     author="John Lithio",
     description="For downloading and analyzing AUDL advanced stats.",
     long_description=long_description,
