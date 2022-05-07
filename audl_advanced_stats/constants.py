@@ -2,7 +2,8 @@
 
 # Don't need this if you're just going to store the data locally
 AWS_BUCKET_NAME = "audl-heroku-data"
-CURRENT_YEAR = 2022
+YEARS = [2022, 2021]
+CURRENT_YEAR = YEARS[0]
 
 # URL to scrape all the games
 SCHEDULE_URL = "https://audl-stat-server.herokuapp.com/web-api/games?limit={games_per_page}&years={year}&page={page_num}"

@@ -31,8 +31,7 @@ class Season:
         """Initialize parameters of season data.
 
         Args:
-            year (int, optional): Season to get stats from. Currently not used because there are only
-                advanced stats for a single season (2021).
+            year (int, optional): Season to get stats from.
                 Defaults to CURRENT_YEAR.
             data_path (str, optional): The path to the folder where data
                 will be stored.
@@ -75,7 +74,7 @@ class Season:
         # QC
         self.game_qc = None
 
-    def get_game_info(self, override=False, upload=None, download=None):
+    def get_game_info(self, override=False, upload=None, download=None, keep_all_years=True):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
         if self.game_info is None:
             if upload is None:
@@ -84,7 +83,7 @@ class Season:
                 download = self.download
 
             # If file doesn't exists locally, try to retrieve it from AWS
-            game_info_path = join(self.league_info_path, f"game_info_{self.year}.feather")
+            game_info_path = join(self.league_info_path, f"game_info.feather")
             if not Path(game_info_path).is_file() and download and not override:
                 download_from_bucket(game_info_path)
 
@@ -93,74 +92,77 @@ class Season:
                 df = pd.read_feather(game_info_path)
 
             else:
-                games = []
-                games_per_page = 20
-                current_page = 1
-                num_pages = np.ceil(150/games_per_page)
+                for year in YEARS:
+                    games = []
+                    games_per_page = 20
+                    current_page = 1
+                    num_pages = np.ceil(150/games_per_page)
 
-                while current_page <= num_pages:
+                    while current_page <= num_pages:
 
-                    game_info_raw = requests.get(self.schedule_url.format(page_num=current_page, year=self.year, games_per_page=games_per_page)).text
-                    game_info_dict = loads(game_info_raw)
-                    if current_page==1:
-                        num_pages = np.ceil(game_info_dict["total"]/games_per_page)
-                    for game_info in game_info_dict.get("games", []):
-                        if game_info["status"]=="Final":
-                            game_url = (
-                                self.stats_url + "game/" + game_info["gameID"]
-                            )
-                            games.append(game_url)
-                    current_page += 1
+                        game_info_raw = requests.get(self.schedule_url.format(page_num=current_page, year=year, games_per_page=games_per_page)).text
+                        game_info_dict = loads(game_info_raw)
+                        if current_page==1:
+                            num_pages = np.ceil(game_info_dict["total"]/games_per_page)
+                        for game_info in game_info_dict.get("games", []):
+                            if game_info["status"]=="Final":
+                                game_url = (
+                                    self.stats_url + "game/" + game_info["gameID"]
+                                )
+                                games.append(game_url)
+                        current_page += 1
 
-                # Parse URLs to get game info
-                game_list = []
-                for x in sorted(games):
-                    game_response = Game(
-                        game_url=x, upload=upload, download=download
-                    ).get_response()
-                    if game_response is None:
-                        game_exists = False
-                        playoffs = False
-                    else:
-                        # Determine whether the game has happened yet
-                        tsghome = game_response.get("tsgHome", dict())
-                        if tsghome is None:
+                    # Parse URLs to get game info
+                    game_list = []
+                    for x in sorted(games):
+                        game_response = Game(
+                            game_url=x, upload=upload, download=download
+                        ).get_response()
+                        if game_response is None:
                             game_exists = False
-                        elif tsghome.get("events", None) == "[]":
-                            game_exists = False
-                        elif tsghome.get("events", None) is not None:
-                            game_exists = True
+                            playoffs = False
                         else:
-                            game_exists = False
+                            # Determine whether the game has happened yet
+                            tsghome = game_response.get("tsgHome", dict())
+                            if tsghome is None:
+                                game_exists = False
+                            elif tsghome.get("events", None) == "[]":
+                                game_exists = False
+                            elif tsghome.get("events", None) is not None:
+                                game_exists = True
+                            else:
+                                game_exists = False
 
-                        # Determine if it's a playoff game
-                        playoffs = not game_response.get("game", dict()).get(
-                            "reg_season", False
+                            # Determine if it's a playoff game
+                            playoffs = not game_response.get("game", dict()).get(
+                                "reg_season", False
+                            )
+
+                            # Division championship games are not currently coded as playoffs in the response,
+                            # but they should be
+                            if game_response.get("game", dict()).get(
+                                "id", -1
+                            ) in PLAYOFF_GAMES.get(year, []):
+                                playoffs = True
+
+                        game_list.append(
+                            [
+                                year,
+                                search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
+                                search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
+                                search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
+                                x,
+                                game_exists,
+                                playoffs,
+                            ]
                         )
-
-                        # Division championship games are not currently coded as playoffs in the response,
-                        # but they should be
-                        if game_response.get("game", dict()).get(
-                            "id", -1
-                        ) in PLAYOFF_GAMES.get(self.year, []):
-                            playoffs = True
-
-                    game_list.append(
-                        [
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(1),
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(2),
-                            search(r"(\d{4}-\d{2}-\d{2})-(.*?)-(.*?)$", x).group(3),
-                            x,
-                            game_exists,
-                            playoffs,
-                        ]
-                    )
 
                 # Save info to file
                 df = (
                     pd.DataFrame(
                         data=game_list,
                         columns=[
+                            "year",
                             "game_date",
                             "away_team",
                             "home_team",
@@ -177,9 +179,11 @@ class Season:
             if upload:
                 upload_to_bucket(game_info_path)
 
-            self.game_info = df
+        self.game_info = df
+        if not keep_all_years:
+            df = df.query(f"year=={self.year}")
 
-        return self.game_info
+        return df
 
     def get_games(
         self,
@@ -188,9 +192,11 @@ class Season:
         upload=None,
         download=None,
         qc=False,
+        keep_all_years=True,
     ):
         """Download and process all game data."""
         needed_columns = [
+            "year",
             "game_id",
             "team_id",
             "opponent_team_id",
@@ -220,8 +226,8 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name_small = join(self.games_path, f"all_games_small_{self.year}.feather")
-            file_name = join(self.games_path, f"all_games_{self.year}.feather")
+            file_name_small = join(self.games_path, f"all_games_small.feather")
+            file_name = join(self.games_path, f"all_games.feather")
             # Get either the file with all columns or only some
             if small_file:
                 all_games_file_name = file_name_small
@@ -244,7 +250,7 @@ class Season:
             else:
                 all_games = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=build_new_file
+                    upload=upload, download=download, override=build_new_file, keep_all_years=True
                 ).iterrows():
                     try:
                         if qc:
@@ -259,7 +265,7 @@ class Season:
                         # Get the game object
                         g = Game(game_url=row["url"], upload=upload, download=download)
                         events_home_file = g.get_events_filename(home=True)
-                        events_away_file = g.get_events_filename(home=True)
+                        events_away_file = g.get_events_filename(home=False)
 
                         # Get and process the game events if they don't already exist
                         if not Path(events_home_file).is_file():
@@ -279,13 +285,16 @@ class Season:
                 if upload:
                     upload_to_bucket(file_name)
                     upload_to_bucket(file_name_small)
+        output = self.games
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
         if small_file:
-            return self.games[needed_columns]
-        else:
-            return self.games
+            output = output[needed_columns]
+
+        return output
 
     def get_start_of_opoints(
-        self, upload=None, download=None,
+        self, upload=None, download=None, keep_all_years=True
     ):
         """Download and process all game data."""
         if self.start_of_opoints is None:
@@ -294,7 +303,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.games_path, f"start_of_opoints_{self.year}.feather")
+            file_name = join(self.games_path, f"start_of_opoints.feather")
 
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
@@ -304,12 +313,16 @@ class Season:
             if Path(file_name).is_file():
                 self.start_of_opoints = pd.read_feather(file_name)
             else:
-                self.start_of_opoints = self.get_games(small_file=True).query("t==1")
+                self.start_of_opoints = self.get_games(small_file=True, keep_all_years=True).query("t==1")
                 self.start_of_opoints.reset_index().to_feather(file_name)
 
-        return self.start_of_opoints
+        output = self.start_of_opoints
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
 
-    def get_teams(self, upload=None, download=None, qc=False):
+        return output
+
+    def get_teams(self, upload=None, download=None, qc=False, keep_all_years=True):
         """Get all teams and team IDs from game data and save it."""
         if self.teams is None:
             if upload is None:
@@ -317,7 +330,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.league_info_path, f"teams_{self.year}.feather")
+            file_name = join(self.league_info_path, f"teams.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -335,13 +348,14 @@ class Season:
                         upload=upload,
                         download=download,
                         qc=False,
+                        keep_all_years=True,
                     )["team_id"]
                     .unique()
                     .tolist()
                 )
                 team_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=False
+                    upload=upload, download=download, override=False, keep_all_years=True
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(team_ids) == 0:
@@ -364,17 +378,17 @@ class Season:
                     if home_team_id in team_ids:
                         team_ids.pop(team_ids.index(home_team_id))
                         team_data.append(
-                            [home_team_id, home_team_abbrev, home_team_name]
+                            [row["year"], home_team_id, home_team_abbrev, home_team_name]
                         )
                     if away_team_id in team_ids:
                         team_ids.pop(team_ids.index(away_team_id))
                         team_data.append(
-                            [away_team_id, away_team_abbrev, away_team_name]
+                            [row["year"], away_team_id, away_team_abbrev, away_team_name]
                         )
 
                 self.teams = (
                     pd.DataFrame(
-                        data=team_data, columns=["team_id", "team_abbrev", "team_name"]
+                        data=team_data, columns=["year", "team_id", "team_abbrev", "team_name"]
                     )
                     .sort_values("team_name")
                     .reset_index(drop=True)
@@ -382,10 +396,14 @@ class Season:
                 self.teams.to_feather(file_name)
                 if upload:
                     upload_to_bucket(file_name)
+            
+        output = self.teams
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
 
-        return self.teams
+        return output
 
-    def get_players(self, upload=None, download=None, qc=False):
+    def get_players(self, upload=None, download=None, qc=False, keep_all_years=True):
         """Get all players and player IDs from game data and save it."""
         if self.players is None:
             if upload is None:
@@ -393,7 +411,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.league_info_path, f"players_{self.year}.feather")
+            file_name = join(self.league_info_path, f"players.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -406,12 +424,12 @@ class Season:
             else:
                 player_ids = [
                     int(x)
-                    for x in list(self.get_games(upload=upload, download=download))
+                    for x in list(self.get_games(upload=upload, download=download, keep_all_years=True))
                     if x.isdigit()
                 ]
                 player_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=False
+                    upload=upload, download=download, override=False, keep_all_years=True
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(player_ids) == 0:
@@ -456,12 +474,12 @@ class Season:
                     ):
                         if pid in player_ids:
                             player_ids.pop(player_ids.index(pid))
-                            player_data.append([pid, pname, teamid])
+                            player_data.append([row["year"], pid, pname, teamid])
 
                 self.players = (
                     pd.DataFrame(
                         data=player_data,
-                        columns=["player_id", "player_name", "team_id"],
+                        columns=["year", "player_id", "player_name", "team_id"],
                     )
                     .sort_values("player_name")
                     .reset_index(drop=True)
@@ -469,10 +487,14 @@ class Season:
                 self.players.to_feather(file_name)
                 if upload:
                     upload_to_bucket(file_name)
+            
+        output = self.players
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
 
-        return self.players
+        return output
 
-    def get_player_stats_by_game(self, upload=None, download=None):
+    def get_player_stats_by_game(self, upload=None, download=None, keep_all_years=True):
         """Compile all player game stats for the season into single dataframe."""
         if self.player_stats_by_game is None:
             if upload is None:
@@ -480,7 +502,7 @@ class Season:
             if download is None:
                 download = self.download
 
-            file_name = join(self.stats_path, f"player_stats_by_game_{self.year}.feather")
+            file_name = join(self.stats_path, f"player_stats_by_game.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
             if not Path(file_name).is_file() and download:
                 download_from_bucket(file_name)
@@ -492,7 +514,7 @@ class Season:
             else:
                 # Get all games that have events (they've actually happened)
                 existing_games = (
-                    self.get_game_info(override=False)
+                    self.get_game_info(override=False, keep_all_years=True)
                     .query("events_exist==True")
                     .copy()
                 )
@@ -500,7 +522,7 @@ class Season:
                 player_stats = []
                 # Process each game to get player segments
                 for i, row in existing_games.iterrows():
-                    g = Game(row["url"])
+                    g = Game(row["url"], year=row["year"])
                     home_stats = g.get_player_stats_by_game(home=True)
                     away_stats = g.get_player_stats_by_game(home=False)
                     player_stats.extend([home_stats, away_stats])
@@ -515,14 +537,18 @@ class Season:
                 ]
                 self.player_stats_by_game.to_feather(file_name)
 
-        return self.player_stats_by_game
+        output = self.player_stats_by_game
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
+
+        return output
 
     def get_team_stats_by_game(self):
         """Compile all team game stats for the season into single dataframe."""
         # TODO: Season team stats by game
         pass
 
-    def get_player_stats_by_season(self, playoffs="all", upload=None, download=None):
+    def get_player_stats_by_season(self, playoffs="all", upload=None, download=None, keep_all_years=True):
         """Compile and aggregate all player stats for the season into single dataframe."""
         if upload is None:
             upload = self.upload
@@ -540,7 +566,7 @@ class Season:
             playoffs_str = "reg"
 
         file_name = join(
-            self.stats_path, f"player_stats_by_season_{self.year}_{playoffs_str}.feather"
+            self.stats_path, f"player_stats_by_season_{playoffs_str}.feather"
         )
         # If file doesn't exist locally, try to retrieve it from AWS
         if not Path(file_name).is_file() and download:
@@ -552,7 +578,7 @@ class Season:
 
         else:
             # Get player stats by game
-            df = self.get_player_stats_by_game(upload=upload, download=download)
+            df = self.get_player_stats_by_game(upload=upload, download=download, keep_all_years=True)
             info_cols = [
                 "playerid",
                 "name",
@@ -575,7 +601,11 @@ class Season:
 
             dfout.to_feather(file_name)
 
-        return dfout
+        output = dfout
+        if not keep_all_years:
+            output = output.query(f"year=={self.year}")
+
+        return output
 
     def get_team_stats_by_season(self):
         """Compile and aggregate all team stats for the season into single dataframe."""
@@ -609,6 +639,7 @@ class Season:
         player_ids=None,
         game_ids=None,
         second_graph=False,
+        keep_all_years=True,
     ):
         """View frequency of possession, scores, turns on the field, similar to shot chart.
 
@@ -618,7 +649,7 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False,)
+        df = self.get_games(small_file=True, build_new_file=False, qc=False,keep_all_years=keep_all_years)
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -983,6 +1014,7 @@ class Season:
         player_ids=None,
         game_ids=None,
         second_graph=False,
+        keep_all_years=True,
     ):
         """View frequency of possession, scores, turns on the field, similar to shot chart.
 
@@ -992,7 +1024,7 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False,)
+        df = self.get_games(small_file=True, build_new_file=False, qc=False,keep_all_years=keep_all_years)
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -1698,11 +1730,11 @@ class Season:
         return df
 
     def visual_end_of_period(
-        self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,],
+        self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,], keep_all_years=True
     ):
         """Create a graph of score probability vs time of the point start."""
         df = (
-            self.get_start_of_opoints().query(f"period=={periods}")
+            self.get_start_of_opoints(keep_all_years=keep_all_years).query(f"period=={periods}")
             # Remove games with bad timestamps
             .query(
                 "~((game_id==2658) & (team_id==3)) & ~((game_id==2661) & (team_id==10))"
@@ -1811,7 +1843,7 @@ class Season:
 
             # Get all games that have events (they've actually happened)
             existing_games = (
-                self.get_game_info(override=False).query("events_exist==True").copy()
+                self.get_game_info(override=False, keep_all_years=True).query("events_exist==True").copy()
             )
 
             # Process each game to get player segments

@@ -1178,6 +1178,7 @@ class Game:
 
             df = (
                 pd.DataFrame.from_records(events_raw)
+                .assign(year=self.year)
                 .pipe(self.add_fourth_period)
                 .pipe(self.get_events_basic_info, home=home)
                 .pipe(self.get_events_periods)
@@ -2936,7 +2937,7 @@ class Game:
         # Fill in missing values
         for col in list(dfout):
             if ("pct" not in col) and (
-                col not in ["playerid", "name", "team", "opponent", "game_date"]
+                col not in ["year", "playerid", "name", "team", "opponent", "game_date"]
             ):
                 dfout[col] = dfout[col].fillna(0)
 
