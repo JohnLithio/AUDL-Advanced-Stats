@@ -653,7 +653,7 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False,keep_all_years=keep_all_years)
+        df = self.get_games(small_file=True, build_new_file=False, qc=False, keep_all_years=keep_all_years)
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -681,10 +681,13 @@ class Season:
         if opposing_team_ids is not None:
             df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
+            player_season_ids = []
+            for player_id in player_ids:
+                player_season_ids.extend(self.get_players().query(f"player_id=={player_id}")["player_season_id"].values.tolist())
             if second_graph:
-                df = df.loc[df[f"r{opposite_suffix}"].isin(player_ids)]
+                df = df.loc[df[f"r{opposite_suffix}"].isin(player_season_ids)]
             else:
-                df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+                df = df.loc[df[f"r{suffix}"].isin(player_season_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
         if remove_ob_pull:
@@ -1028,7 +1031,7 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False,keep_all_years=keep_all_years)
+        df = self.get_games(small_file=True, build_new_file=False, qc=False, keep_all_years=keep_all_years)
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -1056,10 +1059,13 @@ class Season:
         if opposing_team_ids is not None:
             df = df.loc[df["opponent_team_id"].isin(opposing_team_ids)]
         if player_ids is not None:
+            player_season_ids = []
+            for player_id in player_ids:
+                player_season_ids.extend(self.get_players().query(f"player_id=={player_id}")["player_season_id"].values.tolist())
             if second_graph:
-                df = df.loc[df[f"r{opposite_suffix}"].isin(player_ids)]
+                df = df.loc[df[f"r{opposite_suffix}"].isin(player_season_ids)]
             else:
-                df = df.loc[df[f"r{suffix}"].isin(player_ids)]
+                df = df.loc[df[f"r{suffix}"].isin(player_season_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
         if remove_ob_pull:
