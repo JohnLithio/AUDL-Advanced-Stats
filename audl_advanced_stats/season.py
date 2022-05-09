@@ -92,6 +92,7 @@ class Season:
                 self.game_info = pd.read_feather(game_info_path)
 
             else:
+                game_list = []
                 for year in YEARS:
                     games = []
                     games_per_page = 20
@@ -113,7 +114,6 @@ class Season:
                         current_page += 1
 
                     # Parse URLs to get game info
-                    game_list = []
                     for x in sorted(games):
                         game_response = Game(
                             game_url=x, upload=upload, download=download
