@@ -1566,8 +1566,8 @@ class Game:
             # Remove legend title
             legend=dict(title=None),
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=self.get_game_flow_margins(),
             # Transparent background
@@ -1806,8 +1806,8 @@ class Game:
             coloraxis_colorbar_tick0=0,
             coloraxis_colorbar_dtick=1,
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=self.get_game_flow_margins(),
         )
@@ -2075,8 +2075,8 @@ class Game:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             showlegend=False,
             # Remove margins
             margin=dict(t=0, b=0, l=0, r=0),
@@ -2321,8 +2321,8 @@ class Game:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             showlegend=False,
             # Remove margins
             margin=dict(t=0, b=0, l=0, r=0),

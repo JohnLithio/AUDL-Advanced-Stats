@@ -884,8 +884,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
@@ -931,8 +931,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
@@ -979,8 +979,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=21, l=0, r=0, autoexpand=False),
         )
@@ -1264,8 +1264,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
@@ -1311,8 +1311,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=0, l=left_margin, r=0, autoexpand=False),
         )
@@ -1357,8 +1357,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=21, l=0, r=0, autoexpand=False),
         )
@@ -1402,8 +1402,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
         )
@@ -1585,8 +1585,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
         )
@@ -1796,8 +1796,8 @@ class Season:
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             # Change font
-            font_family="TW Cen MT",
-            hoverlabel_font_family="TW Cen MT",
+            font_family="TW Cen MT, Futura",
+            hoverlabel_font_family="TW Cen MT, Futura",
             # Set margins
             # margin=dict(t=0, b=20, l=left_margin, r=0, autoexpand=False),
             yaxis_tickformat=".0%",
