@@ -1472,7 +1472,7 @@ class Game:
             }
         )
 
-        df = pd.concat([start, df, end])
+        df = pd.concat([start, df, end], ignore_index=True)
 
         # Create line graph
         fig = px.line(
@@ -2121,9 +2121,9 @@ class Game:
                         "event": last_row["event"] + 1,
                         "r": last_row["r_after"],
                     }
-                ),
+                )],
                 ignore_index=True,
-            ])
+            )
 
             # Shift play descriptions and yardages
             df["play_description"] = df["play_description"].shift(1)
