@@ -422,7 +422,7 @@ class Season:
 
             # Compile data if file does not already exist
             else:
-                player_ids = [
+                player_season_ids = [
                     int(x)
                     for x in list(self.get_games(upload=upload, download=download, keep_all_years=True))
                     if x.isdigit()
@@ -432,18 +432,20 @@ class Season:
                     upload=upload, download=download, override=False, keep_all_years=True
                 ).iterrows():
                     # Get games until all teams have been found
-                    if len(player_ids) == 0:
+                    if len(player_season_ids) == 0:
                         break
                     g = Game(game_url=row["url"])
+                    home_team_player_season_ids = g.get_home_roster()["player_season_id"].values.tolist()
+                    away_team_player_season_ids = g.get_away_roster()["player_season_id"].values.tolist()
                     home_team_player_ids = g.get_home_roster()["id"].values.tolist()
                     away_team_player_ids = g.get_away_roster()["id"].values.tolist()
                     home_team_ids = [
                         g.get_home_team()["team_id"].iloc[0]
-                        for _ in home_team_player_ids
+                        for _ in home_team_player_season_ids
                     ]
                     away_team_ids = [
                         g.get_away_team()["team_id"].iloc[0]
-                        for _ in away_team_player_ids
+                        for _ in away_team_player_season_ids
                     ]
                     home_team_player_names = (
                         g.get_home_roster()
@@ -467,19 +469,20 @@ class Season:
                         )["player_name"]
                         .values.tolist()
                     )
-                    for pid, pname, teamid in zip(
+                    for pseasonid, pid, pname, teamid in zip(
+                        home_team_player_season_ids + away_team_player_season_ids,
                         home_team_player_ids + away_team_player_ids,
                         home_team_player_names + away_team_player_names,
                         home_team_ids + away_team_ids,
                     ):
-                        if pid in player_ids:
-                            player_ids.pop(player_ids.index(pid))
-                            player_data.append([row["year"], pid, pname, teamid])
+                        if pseasonid in player_season_ids:
+                            player_season_ids.pop(player_season_ids.index(pseasonid))
+                            player_data.append([row["year"], pid, pseasonid, pname, teamid])
 
                 self.players = (
                     pd.DataFrame(
                         data=player_data,
-                        columns=["year", "player_id", "player_name", "team_id"],
+                        columns=["year", "player_id", "player_season_id", "player_name", "team_id"],
                     )
                     .sort_values("player_name")
                     .reset_index(drop=True)
@@ -581,6 +584,7 @@ class Season:
             df = self.get_player_stats_by_game(upload=upload, download=download, keep_all_years=True)
             info_cols = [
                 "playerid",
+                "player_season_id",
                 "name",
                 "team",
                 "opponent",
@@ -592,7 +596,7 @@ class Season:
 
             dfout = (
                 df.query(f"playoffs=={playoffs}")
-                .groupby(["playerid", "name", "team", "year",])[stat_cols]
+                .groupby(["playerid", "player_season_id", "name", "team", "year",])[stat_cols]
                 .sum()
                 .reset_index()
                 .pipe(get_player_rates)

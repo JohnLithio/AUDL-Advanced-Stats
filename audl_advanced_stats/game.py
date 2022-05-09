@@ -379,6 +379,7 @@ class Game:
             )
             .drop(columns=["id_y", "player", "active"])
             .drop_duplicates()
+            .rename(columns={"id": "player_season_id", "player_id": "id"})
         )
 
         # Get active players
@@ -1007,8 +1008,8 @@ class Game:
                 name=lambda x: x["first_name"].str.strip()
                 + " "
                 + x["last_name"].str.strip()
-            )[["id", "name"]]
-            .set_index("id")
+            )[["player_season_id", "name"]]
+            .set_index("player_season_id")
             .to_dict()["name"]
         )
 
@@ -1254,7 +1255,7 @@ class Game:
         #    that each player has their own row for every point they played
         dfs = []
         for i, player in roster.iterrows():
-            playerid = str(player["id"])
+            playerid = str(player["player_season_id"])
             # Only get players who played in the game
             if playerid in events:
                 df = (
@@ -1263,7 +1264,7 @@ class Game:
                     .head(1)
                     .query("elapsed!=0")
                     .assign(
-                        playerid=playerid,
+                        playerid=str(int(player["id"])),
                         firstname=player["first_name"].strip(),
                         lastname=player["last_name"].strip(),
                         name=player["first_name"].strip()
@@ -1401,7 +1402,7 @@ class Game:
 
         # Get the length of the longest name on either team and set the margin based on that
         longest_name = (
-            rosters.loc[rosters["id"].isin(playerids)]
+            rosters.loc[rosters["player_season_id"].isin(playerids)]
             .assign(
                 name_length=lambda x: x["first_name"].str.len()
                 + x["last_name"].str.len()
@@ -2889,7 +2890,8 @@ class Game:
     def get_player_info(self, roster, team, opponent, game_name, game_id):
         """Get general info about each player."""
         dfout = roster.assign(
-            playerid=lambda x: x["id"].astype(int).astype(str),
+            playerid=lambda x: x["player_season_id"].astype(int).astype(str),
+            id=lambda x: x["id"].astype(int).astype(str),
             name=lambda x: x["first_name"].str.strip()
             + " "
             + x["last_name"].str.strip(),
@@ -2902,6 +2904,7 @@ class Game:
         )[
             [
                 "playerid",
+                "id",
                 "name",
                 "team",
                 "opponent",
@@ -2957,12 +2960,13 @@ class Game:
             .merge(self.get_player_yards(df=events), how="outer", on=["playerid"])
             # Only keep records with a valid player ID that can be connected to a name
             .query("name==name")
+            .rename(columns={"playerid": "player_season_id", "id": "playerid"})
         )
 
         # Fill in missing values
         for col in list(dfout):
             if ("pct" not in col) and (
-                col not in ["year", "playerid", "name", "team", "opponent", "game_date"]
+                col not in ["year", "playerid", "player_season_id", "name", "team", "opponent", "game_date"]
             ):
                 dfout[col] = dfout[col].fillna(0)
 
