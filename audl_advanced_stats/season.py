@@ -642,6 +642,7 @@ class Season:
         opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
+        years=None,
         second_graph=False,
         keep_all_years=True,
     ):
@@ -690,6 +691,8 @@ class Season:
                 df = df.loc[df[f"r{suffix}"].isin(player_season_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
+        if years is not None:
+            df = df.loc[df["year"].isin(years)]
         if remove_ob_pull:
             df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
         if o_point is None:
@@ -1020,6 +1023,7 @@ class Season:
         opposing_team_ids=None,
         player_ids=None,
         game_ids=None,
+        years=None,
         second_graph=False,
         keep_all_years=True,
     ):
@@ -1068,6 +1072,8 @@ class Season:
                 df = df.loc[df[f"r{suffix}"].isin(player_season_ids)]
         if game_ids is not None:
             df = df.loc[df["game_id"].isin(game_ids)]
+        if years is not None:
+            df = df.loc[df["year"].isin(years)]
         if remove_ob_pull:
             df = df.loc[~((df["x"] == 0) & (df["y"] == 40))]
         if o_point is None:
