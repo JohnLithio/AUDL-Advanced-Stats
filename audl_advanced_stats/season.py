@@ -89,7 +89,7 @@ class Season:
 
             # If file exists locally, load it
             if Path(game_info_path).is_file() and not override:
-                df = pd.read_feather(game_info_path)
+                self.game_info = pd.read_feather(game_info_path)
 
             else:
                 for year in YEARS:
