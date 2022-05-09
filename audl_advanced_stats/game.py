@@ -2713,7 +2713,7 @@ class Game:
                 turnovers=lambda x: x["stalls"] + x["drops"] + x["throwaways"],
                 plus_minus=lambda x: x["goals"]
                 + x["assists"]
-                + x["callahans"]
+                + x["blocks"]
                 - x["turnovers"],
                 throw_attempts=lambda x: x["throwaways"]
                 + x["completions"]
