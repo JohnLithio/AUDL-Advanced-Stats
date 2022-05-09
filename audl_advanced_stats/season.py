@@ -158,7 +158,7 @@ class Season:
                         )
 
                 # Save info to file
-                df = (
+                self.game_info = (
                     pd.DataFrame(
                         data=game_list,
                         columns=[
@@ -174,16 +174,16 @@ class Season:
                     .drop_duplicates()
                     .reset_index(drop=True)
                 )
-                df.to_feather(game_info_path)
+                self.game_info.to_feather(game_info_path)
 
             if upload:
                 upload_to_bucket(game_info_path)
 
-        self.game_info = df
+        output = self.game_info
         if not keep_all_years:
-            df = df.query(f"year=={self.year}")
+            output = output.query(f"year=={self.year}")
 
-        return df
+        return output
 
     def get_games(
         self,
