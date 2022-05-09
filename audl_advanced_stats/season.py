@@ -263,15 +263,9 @@ class Season:
                             )
 
                         # Get the game object
-                        g = Game(game_url=row["url"], upload=upload, download=download)
-                        events_home_file = g.get_events_filename(home=True)
-                        events_away_file = g.get_events_filename(home=False)
-
-                        # Get and process the game events if they don't already exist
-                        if not Path(events_home_file).is_file():
-                            all_games.append(g.get_home_events(qc=qc))
-                        if not Path(events_away_file).is_file():
-                            all_games.append(g.get_away_events(qc=qc))
+                        g = Game(game_url=row["url"], year=row["year"], upload=upload, download=download)
+                        all_games.append(g.get_home_events(qc=qc))
+                        all_games.append(g.get_away_events(qc=qc))
                     except Exception as e:
                         if qc:
                             print(e)
