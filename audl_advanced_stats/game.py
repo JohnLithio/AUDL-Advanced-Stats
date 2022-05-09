@@ -413,7 +413,7 @@ class Game:
                 data=[[None for _ in list(df)]], columns=list(df)
             )
             fourth_period_row["t"] = 26
-            df = df.append(fourth_period_row)
+            df = pd.concat([df, fourth_period_row], ignore_index=True)
         return df
 
     def get_events_basic_info(self, df, home):
@@ -1873,21 +1873,34 @@ class Game:
             last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
 
             # Add row for last event
-            df = df.append(
-                pd.Series(
-                    {
-                        "x": last_row["x_after"],
-                        "y": last_row["y_after"],
-                        "t": last_row["t_after"],
-                        "yyards_raw": last_row["yyards_raw"],
-                        "xyards_raw": last_row["xyards_raw"],
-                        "yards_raw": last_row["yards_raw"],
-                        "play_description": last_row["play_description"],
-                        "event_name": last_row["event_name_after"],
-                        "event": last_row["event"] + 1,
-                        "r": last_row["r_after"],
-                    }
-                ),
+            df = pd.concat([
+                df,
+                pd.DataFrame(
+                    data=[[
+                        last_row["x_after"],
+                        last_row["y_after"],
+                        last_row["t_after"],
+                        last_row["yyards_raw"],
+                        last_row["xyards_raw"],
+                        last_row["yards_raw"],
+                        last_row["play_description"],
+                        last_row["event_name_after"],
+                        last_row["event"]+1,
+                        last_row["r_after"],
+                    ]],
+                    columns=[
+                        "x",
+                        "y",
+                        "t",
+                        "yyards_raw",
+                        "xyards_raw",
+                        "yards_raw",
+                        "play_description",
+                        "event_name",
+                        "event",
+                        "r",
+                    ]
+                )],
                 ignore_index=True,
             )
 
@@ -2108,19 +2121,31 @@ class Game:
             # Add row for last event
             df = pd.concat([
                 df,
-                pd.Series(
-                    {
-                        "x": last_row["x_after"],
-                        "y": last_row["y_after"],
-                        "t": last_row["t_after"],
-                        "yyards_raw": last_row["yyards_raw"],
-                        "xyards_raw": last_row["xyards_raw"],
-                        "yards_raw": last_row["yards_raw"],
-                        "play_description": last_row["play_description"],
-                        "event_name": last_row["event_name_after"],
-                        "event": last_row["event"] + 1,
-                        "r": last_row["r_after"],
-                    }
+                pd.DataFrame(
+                    data=[[
+                        last_row["x_after"],
+                        last_row["y_after"],
+                        last_row["t_after"],
+                        last_row["yyards_raw"],
+                        last_row["xyards_raw"],
+                        last_row["yards_raw"],
+                        last_row["play_description"],
+                        last_row["event_name_after"],
+                        last_row["event"]+1,
+                        last_row["r_after"],
+                    ]],
+                    columns=[
+                        "x",
+                        "y",
+                        "t",
+                        "yyards_raw",
+                        "xyards_raw",
+                        "yards_raw",
+                        "play_description",
+                        "event_name",
+                        "event",
+                        "r",
+                    ]
                 )],
                 ignore_index=True,
             )
