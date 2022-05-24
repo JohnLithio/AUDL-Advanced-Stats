@@ -74,7 +74,9 @@ class Season:
         # QC
         self.game_qc = None
 
-    def get_game_info(self, override=False, upload=None, download=None, keep_all_years=True):
+    def get_game_info(
+        self, override=False, upload=None, download=None, keep_all_years=True
+    ):
         """Get teams, date, and url for the advanced stats page of every game in the season."""
         if self.game_info is None:
             if upload is None:
@@ -97,16 +99,24 @@ class Season:
                     games = []
                     games_per_page = 20
                     current_page = 1
-                    num_pages = np.ceil(150/games_per_page)
+                    num_pages = np.ceil(150 / games_per_page)
 
                     while current_page <= num_pages:
 
-                        game_info_raw = requests.get(self.schedule_url.format(page_num=current_page, year=year, games_per_page=games_per_page)).text
+                        game_info_raw = requests.get(
+                            self.schedule_url.format(
+                                page_num=current_page,
+                                year=year,
+                                games_per_page=games_per_page,
+                            )
+                        ).text
                         game_info_dict = loads(game_info_raw)
-                        if current_page==1:
-                            num_pages = np.ceil(game_info_dict["total"]/games_per_page)
+                        if current_page == 1:
+                            num_pages = np.ceil(
+                                game_info_dict["total"] / games_per_page
+                            )
                         for game_info in game_info_dict.get("games", []):
-                            if game_info["status"]=="Final":
+                            if game_info["status"] == "Final":
                                 game_url = (
                                     self.stats_url + "game/" + game_info["gameID"]
                                 )
@@ -116,7 +126,10 @@ class Season:
                     # Parse URLs to get game info
                     for x in sorted(games):
                         game_response = Game(
-                            game_url=x, upload=upload, download=download
+                            game_url=x,
+                            data_path=self.data_path,
+                            upload=upload,
+                            download=download,
                         ).get_response()
                         if game_response is None:
                             game_exists = False
@@ -250,7 +263,10 @@ class Season:
             else:
                 all_games = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=build_new_file, keep_all_years=True
+                    upload=upload,
+                    download=download,
+                    override=build_new_file,
+                    keep_all_years=True,
                 ).iterrows():
                     try:
                         if qc:
@@ -263,7 +279,13 @@ class Season:
                             )
 
                         # Get the game object
-                        g = Game(game_url=row["url"], year=row["year"], upload=upload, download=download)
+                        g = Game(
+                            game_url=row["url"],
+                            year=row["year"],
+                            data_path=self.data_path,
+                            upload=upload,
+                            download=download,
+                        )
                         all_games.append(g.get_home_events(qc=qc))
                         all_games.append(g.get_away_events(qc=qc))
                     except Exception as e:
@@ -287,9 +309,7 @@ class Season:
 
         return output
 
-    def get_start_of_opoints(
-        self, upload=None, download=None, keep_all_years=True
-    ):
+    def get_start_of_opoints(self, upload=None, download=None, keep_all_years=True):
         """Download and process all game data."""
         if self.start_of_opoints is None:
             if upload is None:
@@ -307,7 +327,9 @@ class Season:
             if Path(file_name).is_file():
                 self.start_of_opoints = pd.read_feather(file_name)
             else:
-                self.start_of_opoints = self.get_games(small_file=True, keep_all_years=True).query("t==1")
+                self.start_of_opoints = self.get_games(
+                    small_file=True, keep_all_years=True
+                ).query("t==1")
                 self.start_of_opoints.reset_index().to_feather(file_name)
 
         output = self.start_of_opoints
@@ -349,12 +371,15 @@ class Season:
                 )
                 team_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=False, keep_all_years=True
+                    upload=upload,
+                    download=download,
+                    override=False,
+                    keep_all_years=True,
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(team_ids) == 0:
                         break
-                    g = Game(game_url=row["url"])
+                    g = Game(game_url=row["url"], data_path=self.data_path)
                     home_team_name = (
                         g.get_home_team()["city"].iloc[0]
                         + " "
@@ -372,17 +397,28 @@ class Season:
                     if home_team_id in team_ids:
                         team_ids.pop(team_ids.index(home_team_id))
                         team_data.append(
-                            [row["year"], home_team_id, home_team_abbrev, home_team_name]
+                            [
+                                row["year"],
+                                home_team_id,
+                                home_team_abbrev,
+                                home_team_name,
+                            ]
                         )
                     if away_team_id in team_ids:
                         team_ids.pop(team_ids.index(away_team_id))
                         team_data.append(
-                            [row["year"], away_team_id, away_team_abbrev, away_team_name]
+                            [
+                                row["year"],
+                                away_team_id,
+                                away_team_abbrev,
+                                away_team_name,
+                            ]
                         )
 
                 self.teams = (
                     pd.DataFrame(
-                        data=team_data, columns=["year", "team_id", "team_abbrev", "team_name"]
+                        data=team_data,
+                        columns=["year", "team_id", "team_abbrev", "team_name"],
                     )
                     .sort_values("team_name")
                     .reset_index(drop=True)
@@ -390,7 +426,7 @@ class Season:
                 self.teams.to_feather(file_name)
                 if upload:
                     upload_to_bucket(file_name)
-            
+
         output = self.teams
         if not keep_all_years:
             output = output.query(f"year=={self.year}")
@@ -418,19 +454,30 @@ class Season:
             else:
                 player_season_ids = [
                     int(x)
-                    for x in list(self.get_games(upload=upload, download=download, keep_all_years=True))
+                    for x in list(
+                        self.get_games(
+                            upload=upload, download=download, keep_all_years=True
+                        )
+                    )
                     if x.isdigit()
                 ]
                 player_data = []
                 for i, row in self.get_game_info(
-                    upload=upload, download=download, override=False, keep_all_years=True
+                    upload=upload,
+                    download=download,
+                    override=False,
+                    keep_all_years=True,
                 ).iterrows():
                     # Get games until all teams have been found
                     if len(player_season_ids) == 0:
                         break
-                    g = Game(game_url=row["url"])
-                    home_team_player_season_ids = g.get_home_roster()["player_season_id"].values.tolist()
-                    away_team_player_season_ids = g.get_away_roster()["player_season_id"].values.tolist()
+                    g = Game(game_url=row["url"], data_path=self.data_path)
+                    home_team_player_season_ids = g.get_home_roster()[
+                        "player_season_id"
+                    ].values.tolist()
+                    away_team_player_season_ids = g.get_away_roster()[
+                        "player_season_id"
+                    ].values.tolist()
                     home_team_player_ids = g.get_home_roster()["id"].values.tolist()
                     away_team_player_ids = g.get_away_roster()["id"].values.tolist()
                     home_team_ids = [
@@ -471,12 +518,20 @@ class Season:
                     ):
                         if pseasonid in player_season_ids:
                             player_season_ids.pop(player_season_ids.index(pseasonid))
-                            player_data.append([row["year"], pid, pseasonid, pname, teamid])
+                            player_data.append(
+                                [row["year"], pid, pseasonid, pname, teamid]
+                            )
 
                 self.players = (
                     pd.DataFrame(
                         data=player_data,
-                        columns=["year", "player_id", "player_season_id", "player_name", "team_id"],
+                        columns=[
+                            "year",
+                            "player_id",
+                            "player_season_id",
+                            "player_name",
+                            "team_id",
+                        ],
                     )
                     .sort_values("player_name")
                     .reset_index(drop=True)
@@ -484,7 +539,7 @@ class Season:
                 self.players.to_feather(file_name)
                 if upload:
                     upload_to_bucket(file_name)
-            
+
         output = self.players
         if not keep_all_years:
             output = output.query(f"year=={self.year}")
@@ -519,7 +574,7 @@ class Season:
                 player_stats = []
                 # Process each game to get player segments
                 for i, row in existing_games.iterrows():
-                    g = Game(row["url"], year=row["year"])
+                    g = Game(row["url"], year=row["year"], data_path=self.data_path)
                     home_stats = g.get_player_stats_by_game(home=True)
                     away_stats = g.get_player_stats_by_game(home=False)
                     player_stats.extend([home_stats, away_stats])
@@ -545,7 +600,9 @@ class Season:
         # TODO: Season team stats by game
         pass
 
-    def get_player_stats_by_season(self, playoffs="all", upload=None, download=None, keep_all_years=True):
+    def get_player_stats_by_season(
+        self, playoffs="all", upload=None, download=None, keep_all_years=True
+    ):
         """Compile and aggregate all player stats for the season into single dataframe."""
         if upload is None:
             upload = self.upload
@@ -575,7 +632,9 @@ class Season:
 
         else:
             # Get player stats by game
-            df = self.get_player_stats_by_game(upload=upload, download=download, keep_all_years=True)
+            df = self.get_player_stats_by_game(
+                upload=upload, download=download, keep_all_years=True
+            )
             info_cols = [
                 "playerid",
                 "player_season_id",
@@ -590,7 +649,15 @@ class Season:
 
             dfout = (
                 df.query(f"playoffs=={playoffs}")
-                .groupby(["playerid", "player_season_id", "name", "team", "year",])[stat_cols]
+                .groupby(
+                    [
+                        "playerid",
+                        "player_season_id",
+                        "name",
+                        "team",
+                        "year",
+                    ]
+                )[stat_cols]
                 .sum()
                 .reset_index()
                 .pipe(get_player_rates)
@@ -648,7 +715,12 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False, keep_all_years=keep_all_years)
+        df = self.get_games(
+            small_file=True,
+            build_new_file=False,
+            qc=False,
+            keep_all_years=keep_all_years,
+        )
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -678,7 +750,11 @@ class Season:
         if player_ids is not None:
             player_season_ids = []
             for player_id in player_ids:
-                player_season_ids.extend(self.get_players().query(f"player_id=={player_id}")["player_season_id"].values.tolist())
+                player_season_ids.extend(
+                    self.get_players()
+                    .query(f"player_id=={player_id}")["player_season_id"]
+                    .values.tolist()
+                )
             if second_graph:
                 df = df.loc[df[f"r{opposite_suffix}"].isin(player_season_ids)]
             else:
@@ -711,10 +787,14 @@ class Season:
             .query(f"o_point=={o_point}")
             .assign(
                 x_cut=lambda x: pd.cut(
-                    x[f"x"], bins=x_bins, labels=[i for i in range(len(x_bins) - 1)],
+                    x[f"x"],
+                    bins=x_bins,
+                    labels=[i for i in range(len(x_bins) - 1)],
                 ),
                 y_cut=lambda x: pd.cut(
-                    x[f"y"], bins=y_bins, labels=[i for i in range(len(y_bins) - 1)],
+                    x[f"y"],
+                    bins=y_bins,
+                    labels=[i for i in range(len(y_bins) - 1)],
                 ),
                 x_cut_after=lambda x: pd.cut(
                     x[f"x_after"],
@@ -938,7 +1018,13 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hy = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
+        hovertext_hy = "<br>".join(
+            [
+                f"{outcome}s:",
+                "%{y}",
+                "<extra></extra>",
+            ]
+        )
         fighy.update_traces(hovertemplate=hovertext_hy)
 
         fighx = px.histogram(
@@ -986,7 +1072,13 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hx = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
+        hovertext_hx = "<br>".join(
+            [
+                f"{outcome}s:",
+                "%{x}",
+                "<extra></extra>",
+            ]
+        )
         fighx.update_traces(hovertemplate=hovertext_hx)
 
         return fighm, fighx, fighy
@@ -1029,7 +1121,12 @@ class Season:
             metric (str): Can be count, pct, yards_raw, yyards_raw, or xyards.
 
         """
-        df = self.get_games(small_file=True, build_new_file=False, qc=False, keep_all_years=keep_all_years)
+        df = self.get_games(
+            small_file=True,
+            build_new_file=False,
+            qc=False,
+            keep_all_years=keep_all_years,
+        )
 
         # Set whether heat map should be for the throw or the catch
         if throw:
@@ -1059,7 +1156,11 @@ class Season:
         if player_ids is not None:
             player_season_ids = []
             for player_id in player_ids:
-                player_season_ids.extend(self.get_players().query(f"player_id=={player_id}")["player_season_id"].values.tolist())
+                player_season_ids.extend(
+                    self.get_players()
+                    .query(f"player_id=={player_id}")["player_season_id"]
+                    .values.tolist()
+                )
             if second_graph:
                 df = df.loc[df[f"r{opposite_suffix}"].isin(player_season_ids)]
             else:
@@ -1092,10 +1193,14 @@ class Season:
             .query(f"o_point=={o_point}")
             .assign(
                 x_cut=lambda x: pd.cut(
-                    x[f"x"], bins=x_bins, labels=[i for i in range(len(x_bins) - 1)],
+                    x[f"x"],
+                    bins=x_bins,
+                    labels=[i for i in range(len(x_bins) - 1)],
                 ),
                 y_cut=lambda x: pd.cut(
-                    x[f"y"], bins=y_bins, labels=[i for i in range(len(y_bins) - 1)],
+                    x[f"y"],
+                    bins=y_bins,
+                    labels=[i for i in range(len(y_bins) - 1)],
                 ),
                 x_cut_after=lambda x: pd.cut(
                     x[f"x_after"],
@@ -1318,7 +1423,13 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hy = "<br>".join([f"{outcome}s:", "%{x}", "<extra></extra>",])
+        hovertext_hy = "<br>".join(
+            [
+                f"{outcome}s:",
+                "%{x}",
+                "<extra></extra>",
+            ]
+        )
         fighy.update_traces(hovertemplate=hovertext_hy)
 
         fighx = px.histogram(
@@ -1364,7 +1475,13 @@ class Season:
         )
 
         # Text to show on hover
-        hovertext_hx = "<br>".join([f"{outcome}s:", "%{y}", "<extra></extra>",])
+        hovertext_hx = "<br>".join(
+            [
+                f"{outcome}s:",
+                "%{y}",
+                "<extra></extra>",
+            ]
+        )
         fighx.update_traces(hovertemplate=hovertext_hx)
 
         return fighm, fighx, fighy
@@ -1740,11 +1857,21 @@ class Season:
         return df
 
     def visual_end_of_period(
-        self, team_ids=None, opposing_team_ids=None, periods=[1, 2, 3,], keep_all_years=True
+        self,
+        team_ids=None,
+        opposing_team_ids=None,
+        periods=[
+            1,
+            2,
+            3,
+        ],
+        keep_all_years=True,
     ):
         """Create a graph of score probability vs time of the point start."""
         df = (
-            self.get_start_of_opoints(keep_all_years=keep_all_years).query(f"period=={periods}")
+            self.get_start_of_opoints(keep_all_years=keep_all_years).query(
+                f"period=={periods}"
+            )
             # Remove games with bad timestamps
             .query(
                 "~((game_id==2658) & (team_id==3)) & ~((game_id==2661) & (team_id==10))"
@@ -1853,12 +1980,14 @@ class Season:
 
             # Get all games that have events (they've actually happened)
             existing_games = (
-                self.get_game_info(override=False, keep_all_years=True).query("events_exist==True").copy()
+                self.get_game_info(override=False, keep_all_years=True)
+                .query("events_exist==True")
+                .copy()
             )
 
             # Process each game to get player segments
             for i, row in existing_games.iterrows():
-                g = Game(row["url"])
+                g = Game(row["url"], data_path=self.data_path)
                 times_home, psegs_home = g.get_player_segments(
                     roster=g.get_home_roster(), events=g.get_home_events()
                 )

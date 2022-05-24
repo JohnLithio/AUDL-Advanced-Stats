@@ -1,7 +1,7 @@
 """Global constants to be used in the game and season files."""
 
 # Don't need this if you're just going to store the data locally
-AWS_BUCKET_NAME = "audl-heroku-data"
+BUCKET_NAME = "audl-heroku-data"
 YEARS = [2022, 2021]
 CURRENT_YEAR = YEARS[0]
 
