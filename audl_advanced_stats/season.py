@@ -333,6 +333,8 @@ class Season:
                     small_file=True, keep_all_years=True
                 ).query("t==1")
                 self.start_of_opoints.reset_index().to_feather(file_name)
+                if upload:
+                    upload_to_bucket(file_name)
 
         output = self.start_of_opoints
         if not keep_all_years:
