@@ -564,7 +564,9 @@ class Season:
 
         return output
 
-    def get_player_stats_by_game(self, upload=None, download=None, keep_all_years=True):
+    def get_player_stats_by_game(
+        self, upload=None, download=None, build_new_file=False, keep_all_years=True
+    ):
         """Compile all player game stats for the season into single dataframe."""
         if self.player_stats_by_game is None:
             if upload is None:
@@ -574,11 +576,11 @@ class Season:
 
             file_name = join(self.stats_path, f"player_stats_by_game.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file() and download:
+            if not Path(file_name).is_file() and download and not build_new_file:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
-            if Path(file_name).is_file():
+            if Path(file_name).is_file() and not build_new_file:
                 self.player_stats_by_game = pd.read_feather(file_name)
 
             else:
@@ -606,6 +608,8 @@ class Season:
                     )
                 ]
                 self.player_stats_by_game.to_feather(file_name)
+                if upload:
+                    upload_to_bucket(file_name)
 
         output = self.player_stats_by_game
         if not keep_all_years:
@@ -619,7 +623,12 @@ class Season:
         pass
 
     def get_player_stats_by_season(
-        self, playoffs="all", upload=None, download=None, keep_all_years=True
+        self,
+        playoffs="all",
+        upload=None,
+        download=None,
+        build_new_file=False,
+        keep_all_years=True,
     ):
         """Compile and aggregate all player stats for the season into single dataframe."""
         if upload is None:
@@ -641,11 +650,11 @@ class Season:
             self.stats_path, f"player_stats_by_season_{playoffs_str}.feather"
         )
         # If file doesn't exist locally, try to retrieve it from AWS
-        if not Path(file_name).is_file() and download:
+        if not Path(file_name).is_file() and download and not build_new_file:
             download_from_bucket(file_name)
 
         # If file exists locally, load it
-        if Path(file_name).is_file():
+        if Path(file_name).is_file() and not build_new_file:
             dfout = pd.read_feather(file_name)
 
         else:
@@ -683,6 +692,8 @@ class Season:
             )
 
             dfout.to_feather(file_name)
+            if upload:
+                upload_to_bucket(file_name)
 
         output = dfout
         if not keep_all_years:
