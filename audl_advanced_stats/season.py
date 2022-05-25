@@ -309,7 +309,9 @@ class Season:
 
         return output
 
-    def get_start_of_opoints(self, upload=None, download=None, keep_all_years=True):
+    def get_start_of_opoints(
+        self, upload=None, download=None, build_new_file=False, keep_all_years=True
+    ):
         """Download and process all game data."""
         if self.start_of_opoints is None:
             if upload is None:
@@ -320,11 +322,11 @@ class Season:
             file_name = join(self.games_path, f"start_of_opoints.feather")
 
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file() and download:
+            if not Path(file_name).is_file() and download and not build_new_file:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
-            if Path(file_name).is_file():
+            if Path(file_name).is_file() and not build_new_file:
                 self.start_of_opoints = pd.read_feather(file_name)
             else:
                 self.start_of_opoints = self.get_games(
@@ -338,7 +340,14 @@ class Season:
 
         return output
 
-    def get_teams(self, upload=None, download=None, qc=False, keep_all_years=True):
+    def get_teams(
+        self,
+        upload=None,
+        download=None,
+        build_new_file=False,
+        qc=False,
+        keep_all_years=True,
+    ):
         """Get all teams and team IDs from game data and save it."""
         if self.teams is None:
             if upload is None:
@@ -348,11 +357,11 @@ class Season:
 
             file_name = join(self.league_info_path, f"teams.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file() and download:
+            if not Path(file_name).is_file() and download and not build_new_file:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
-            if Path(file_name).is_file():
+            if Path(file_name).is_file() and not build_new_file:
                 self.teams = pd.read_feather(file_name)
 
             # Compile data if file does not already exist
@@ -433,7 +442,14 @@ class Season:
 
         return output
 
-    def get_players(self, upload=None, download=None, qc=False, keep_all_years=True):
+    def get_players(
+        self,
+        upload=None,
+        download=None,
+        build_new_file=False,
+        qc=False,
+        keep_all_years=True,
+    ):
         """Get all players and player IDs from game data and save it."""
         if self.players is None:
             if upload is None:
@@ -443,11 +459,11 @@ class Season:
 
             file_name = join(self.league_info_path, f"players.feather")
             # If file doesn't exist locally, try to retrieve it from AWS
-            if not Path(file_name).is_file() and download:
+            if not Path(file_name).is_file() and download and not build_new_file:
                 download_from_bucket(file_name)
 
             # If file exists locally, load it
-            if Path(file_name).is_file():
+            if Path(file_name).is_file() and not build_new_file:
                 self.players = pd.read_feather(file_name)
 
             # Compile data if file does not already exist
