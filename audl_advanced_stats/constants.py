@@ -2,14 +2,14 @@
 
 # Don't need this if you're just going to store the data locally
 BUCKET_NAME = "audl-heroku-data"
-YEARS = [2022, 2021]
+YEARS = [2023, 2022, 2021]
 CURRENT_YEAR = YEARS[0]
 
 # URL to scrape all the games
-SCHEDULE_URL = "https://audl-stat-server.herokuapp.com/web-api/games?limit={games_per_page}&years={year}&page={page_num}"
+SCHEDULE_URL = "https://www.backend.audlstats.com/web-api/games?limit={games_per_page}&years={year}&page={page_num}"
 
 # Endpoint for getting advanced stats data
-STATS_URL = "https://audl-stat-server.herokuapp.com/stats-pages/"
+STATS_URL = "https://www.backend.audlstats.com/stats-pages/"
 
 # Ratios for heatmap subplots
 HEATMAP_RATIO_H_X = 0.85
@@ -20,7 +20,13 @@ HEATMAP_RATIO_V_Y = 0.9
 # Playoff game IDs
 PLAYOFF_GAMES = {
     2021: [2794, 2795, 2796, 2797, 2799, 2800, 2801, 2802],
+    2022: [2963, 2962, 2961, 2960, 2959, 2958, 2955, 2956, 2953, 2954],
 }
+
+# All-star game IDs
+ALLSTAR_GAMES = [
+    2964,
+]
 
 # List of event type encodings from what I figured out.
 # Should confirm with Ben Nelson about this though.
@@ -75,8 +81,8 @@ EVENT_TYPES = {
     # 48: "",
     # 49: "",
     50: "Start of Game",
-    51: "End of Game Due to Weather",
-    # 52: "",
+    51: "Weather - Delayed",
+    52: "Weather - Resumed",
     53: "Play Resumed",
     54: "Play Stopped",
 }

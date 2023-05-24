@@ -446,7 +446,7 @@ class Game:
         df = (
             df.assign(
                 # Classify each point as O or D point
-                o_point=lambda x: np.where(x["t"].isin([1,50]), True, None),
+                o_point=lambda x: np.where(x["t"].isin([1]), True, None),
                 # Sometimes the event for the start of a d-point is missing. One game had two pulls with a foul in-between.
                 d_point=lambda x: np.where(
                     x["t"].isin([2])
@@ -539,6 +539,7 @@ class Game:
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
+                o_point=lambda x: x["o_point"].fillna(method="bfill"),
                 point_hold=lambda x: np.where(
                     (
                         (x["point_outcome"] == EVENT_TYPES[22])
@@ -547,7 +548,7 @@ class Game:
                     & (x["o_point"]),
                     "Hold",
                     "End of Period",
-                )
+                ),
             )
             # Mark whether each point was a hold, break, or neither
             .assign(
@@ -1874,34 +1875,38 @@ class Game:
             last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
 
             # Add row for last event
-            df = pd.concat([
-                df,
-                pd.DataFrame(
-                    data=[[
-                        last_row["x_after"],
-                        last_row["y_after"],
-                        last_row["t_after"],
-                        last_row["yyards_raw"],
-                        last_row["xyards_raw"],
-                        last_row["yards_raw"],
-                        last_row["play_description"],
-                        last_row["event_name_after"],
-                        last_row["event"]+1,
-                        last_row["r_after"],
-                    ]],
-                    columns=[
-                        "x",
-                        "y",
-                        "t",
-                        "yyards_raw",
-                        "xyards_raw",
-                        "yards_raw",
-                        "play_description",
-                        "event_name",
-                        "event",
-                        "r",
-                    ]
-                )],
+            df = pd.concat(
+                [
+                    df,
+                    pd.DataFrame(
+                        data=[
+                            [
+                                last_row["x_after"],
+                                last_row["y_after"],
+                                last_row["t_after"],
+                                last_row["yyards_raw"],
+                                last_row["xyards_raw"],
+                                last_row["yards_raw"],
+                                last_row["play_description"],
+                                last_row["event_name_after"],
+                                last_row["event"] + 1,
+                                last_row["r_after"],
+                            ]
+                        ],
+                        columns=[
+                            "x",
+                            "y",
+                            "t",
+                            "yyards_raw",
+                            "xyards_raw",
+                            "yards_raw",
+                            "play_description",
+                            "event_name",
+                            "event",
+                            "r",
+                        ],
+                    ),
+                ],
                 ignore_index=True,
             )
 
@@ -2120,34 +2125,38 @@ class Game:
             last_row = df.loc[df["event"] == df["event"].max()].iloc[0].copy()
 
             # Add row for last event
-            df = pd.concat([
-                df,
-                pd.DataFrame(
-                    data=[[
-                        last_row["x_after"],
-                        last_row["y_after"],
-                        last_row["t_after"],
-                        last_row["yyards_raw"],
-                        last_row["xyards_raw"],
-                        last_row["yards_raw"],
-                        last_row["play_description"],
-                        last_row["event_name_after"],
-                        last_row["event"]+1,
-                        last_row["r_after"],
-                    ]],
-                    columns=[
-                        "x",
-                        "y",
-                        "t",
-                        "yyards_raw",
-                        "xyards_raw",
-                        "yards_raw",
-                        "play_description",
-                        "event_name",
-                        "event",
-                        "r",
-                    ]
-                )],
+            df = pd.concat(
+                [
+                    df,
+                    pd.DataFrame(
+                        data=[
+                            [
+                                last_row["x_after"],
+                                last_row["y_after"],
+                                last_row["t_after"],
+                                last_row["yyards_raw"],
+                                last_row["xyards_raw"],
+                                last_row["yards_raw"],
+                                last_row["play_description"],
+                                last_row["event_name_after"],
+                                last_row["event"] + 1,
+                                last_row["r_after"],
+                            ]
+                        ],
+                        columns=[
+                            "x",
+                            "y",
+                            "t",
+                            "yyards_raw",
+                            "xyards_raw",
+                            "yards_raw",
+                            "play_description",
+                            "event_name",
+                            "event",
+                            "r",
+                        ],
+                    ),
+                ],
                 ignore_index=True,
             )
 
@@ -2442,7 +2451,13 @@ class Game:
             df_team_yards_player = (
                 df.query("t_after==[20, 22]")
                 .query(f"`{playerid}`==1")[
-                    ["xyards", "yyards", "yyards_raw", "yards", "yards_raw",]
+                    [
+                        "xyards",
+                        "yyards",
+                        "yyards_raw",
+                        "yards",
+                        "yards_raw",
+                    ]
                 ]
                 .sum()
                 .to_frame()
@@ -2474,23 +2489,32 @@ class Game:
             .unstack(level=["centering_pass"], fill_value=0)
             .reset_index()
             .pipe(self.flatten_columns)
-            .assign(
-                xyards_throwing_total=lambda x: x["xyards_throwing"]
-                + x["xyards_throwing_center"],
-                yyards_throwing_total=lambda x: x["yyards_throwing"]
-                + x["yyards_throwing_center"],
-                yyards_raw_throwing_total=lambda x: x["yyards_raw_throwing"]
-                + x["yyards_raw_throwing_center"],
-                yards_throwing_total=lambda x: x["yards_throwing"]
-                + x["yards_throwing_center"],
-                yards_raw_throwing_total=lambda x: x["yards_raw_throwing"]
-                + x["yards_raw_throwing_center"],
-            )
+        )
+        if "xyards_throwing_center" not in df_throw.columns:
+            df_throw["xyards_throwing_center"] = 0
+            df_throw["yyards_throwing_center"] = 0
+            df_throw["yyards_raw_throwing_center"] = 0
+            df_throw["yards_throwing_center"] = 0
+            df_throw["yards_raw_throwing_center"] = 0
+
+        df_throw = df_throw.assign(
+            xyards_throwing_total=lambda x: x["xyards_throwing"]
+            + x["xyards_throwing_center"],
+            yyards_throwing_total=lambda x: x["yyards_throwing"]
+            + x["yyards_throwing_center"],
+            yyards_raw_throwing_total=lambda x: x["yyards_raw_throwing"]
+            + x["yyards_raw_throwing_center"],
+            yards_throwing_total=lambda x: x["yards_throwing"]
+            + x["yards_throwing_center"],
+            yards_raw_throwing_total=lambda x: x["yards_raw_throwing"]
+            + x["yards_raw_throwing_center"],
         )
 
         df_throwaway = (
             df.query("t_after==[7, 8]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .agg(
                 {
@@ -2526,18 +2550,25 @@ class Game:
             .unstack(level=["centering_pass"], fill_value=0)
             .reset_index()
             .pipe(self.flatten_columns)
-            .assign(
-                xyards_receiving_total=lambda x: x["xyards_receiving"]
-                + x["xyards_receiving_center"],
-                yyards_receiving_total=lambda x: x["yyards_receiving"]
-                + x["yyards_receiving_center"],
-                yyards_raw_receiving_total=lambda x: x["yyards_raw_receiving"]
-                + x["yyards_raw_receiving_center"],
-                yards_receiving_total=lambda x: x["yards_receiving"]
-                + x["yards_receiving_center"],
-                yards_raw_receiving_total=lambda x: x["yards_raw_receiving"]
-                + x["yards_raw_receiving_center"],
-            )
+        )
+        if "xyards_receiving_center" not in df_receive.columns:
+            df_receive["xyards_receiving_center"] = 0
+            df_receive["yyards_receiving_center"] = 0
+            df_receive["yyards_raw_receiving_center"] = 0
+            df_receive["yards_receiving_center"] = 0
+            df_receive["yards_raw_receiving_center"] = 0
+
+        df_receive = df_receive.assign(
+            xyards_receiving_total=lambda x: x["xyards_receiving"]
+            + x["xyards_receiving_center"],
+            yyards_receiving_total=lambda x: x["yyards_receiving"]
+            + x["yyards_receiving_center"],
+            yyards_raw_receiving_total=lambda x: x["yyards_raw_receiving"]
+            + x["yyards_raw_receiving_center"],
+            yards_receiving_total=lambda x: x["yards_receiving"]
+            + x["yards_receiving_center"],
+            yards_raw_receiving_total=lambda x: x["yards_raw_receiving"]
+            + x["yards_raw_receiving_center"],
         )
 
         dfout = (
@@ -2619,7 +2650,9 @@ class Game:
 
         df_throwaway = (
             df.query("t_after==[7, 8]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("throwaways")
@@ -2628,7 +2661,9 @@ class Game:
 
         df_drop = (
             df.query("t_after==[19,]")
-            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("drops")
@@ -2637,7 +2672,9 @@ class Game:
 
         df_completion = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("completions")
@@ -2646,7 +2683,9 @@ class Game:
 
         df_reception = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("receptions")
@@ -2655,7 +2694,9 @@ class Game:
 
         df_stall = (
             df.query("t_after==[17,]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("stalls")
@@ -2664,7 +2705,9 @@ class Game:
 
         df_assist = (
             df.query("t_after==[22,]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("assists")
@@ -2673,7 +2716,9 @@ class Game:
 
         df_goal = (
             df.query("t_after==[22,]")
-            .assign(playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r_after"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("goals")
@@ -2682,7 +2727,9 @@ class Game:
 
         df_block = (
             df.query("t==[5,6]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("blocks")
@@ -2691,7 +2738,9 @@ class Game:
 
         df_callahan = (
             df.query("t==[6,]")
-            .assign(playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].fillna(-1).astype(int).astype(str),
+            )
             .groupby(["playerid"])
             .size()
             .rename("callahans")
@@ -2846,7 +2895,9 @@ class Game:
         """Get the number of each throw type (huck, dump, etc.) for each player."""
         df_completion = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].astype(int).astype(str),
+            )
             .groupby(["playerid", "throw_type"])
             .size()
             .rename("completions")
@@ -2855,7 +2906,9 @@ class Game:
 
         df_reception = (
             df.query("t_after==[20, 22]")
-            .assign(playerid=lambda x: x["r_after"].astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r_after"].astype(int).astype(str),
+            )
             .groupby(["playerid", "throw_type"])
             .size()
             .rename("receptions")
@@ -2864,7 +2917,9 @@ class Game:
 
         df_throwaway = (
             df.query("t_after==[7, 8]")
-            .assign(playerid=lambda x: x["r"].astype(int).astype(str),)
+            .assign(
+                playerid=lambda x: x["r"].astype(int).astype(str),
+            )
             .groupby(["playerid", "throw_type"])
             .size()
             .rename("throwaways")
@@ -2877,7 +2932,9 @@ class Game:
             )
             .merge(df_reception, how="outer", on=["playerid", "throw_type"])
             .fillna(0)
-            .assign(attempts=lambda x: x["completions"] + x["throwaways"],)
+            .assign(
+                attempts=lambda x: x["completions"] + x["throwaways"],
+            )
             .set_index(["playerid", "throw_type"])
             .unstack(level=["throw_type"], fill_value=0)
             .pipe(self.flatten_columns)
@@ -2966,7 +3023,16 @@ class Game:
         # Fill in missing values
         for col in list(dfout):
             if ("pct" not in col) and (
-                col not in ["year", "playerid", "player_season_id", "name", "team", "opponent", "game_date"]
+                col
+                not in [
+                    "year",
+                    "playerid",
+                    "player_season_id",
+                    "name",
+                    "team",
+                    "opponent",
+                    "game_date",
+                ]
             ):
                 dfout[col] = dfout[col].fillna(0)
 

@@ -131,6 +131,14 @@ class Season:
                             upload=upload,
                             download=download,
                         ).get_response()
+
+                        # Don't include allstar games
+                        if (
+                            game_response.get("game", dict()).get("id", -1)
+                            in ALLSTAR_GAMES
+                        ):
+                            continue
+
                         if game_response is None:
                             game_exists = False
                             playoffs = False
