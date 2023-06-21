@@ -735,6 +735,8 @@ class Season:
         zmax=None,
         o_point=None,
         remove_ob_pull=False,
+        pull_only=False,
+        pull_types="[3,4]",
         throw=True,
         team_ids=None,
         opposing_team_ids=None,
@@ -760,7 +762,7 @@ class Season:
         )
 
         # Set whether heat map should be for the throw or the catch
-        if throw:
+        if throw and not pull_only:
             suffix = ""
             opposite_suffix = "_after"
         else:
@@ -818,9 +820,14 @@ class Season:
         y_bins = np.linspace(0, 120, 13)
 
         # Get data for heatmap
+        if pull_only:
+            df = df.query(f"t=={pull_types}")
+        else:
+            df = df.query(
+                "t_after==[8, 10, 12, 13, 17, 19, 20, 22, 23, 24, 25, 26, 27]"
+            )
         df = (
             df.query(f"x{suffix}==x{suffix}")
-            .query("t_after==[8, 10, 12, 13, 17, 19, 20, 22, 23, 24, 25, 26, 27]")
             .query(f"o_point=={o_point}")
             .assign(
                 x_cut=lambda x: pd.cut(
@@ -1141,6 +1148,8 @@ class Season:
         zmax=None,
         o_point=None,
         remove_ob_pull=False,
+        pull_only=False,
+        pull_types="[3,4]",
         throw=True,
         team_ids=None,
         opposing_team_ids=None,
@@ -1166,7 +1175,7 @@ class Season:
         )
 
         # Set whether heat map should be for the throw or the catch
-        if throw:
+        if throw and not pull_only:
             suffix = ""
             opposite_suffix = "_after"
         else:
@@ -1224,9 +1233,14 @@ class Season:
         y_bins = np.linspace(0, 120, 13)
 
         # Get data for heatmap
+        if pull_only:
+            df = df.query(f"t=={pull_types}")
+        else:
+            df = df.query(
+                "t_after==[8, 10, 12, 13, 17, 19, 20, 22, 23, 24, 25, 26, 27]"
+            )
         df = (
             df.query(f"x{suffix}==x{suffix}")
-            .query("t_after==[8, 10, 12, 13, 17, 19, 20, 22, 23, 24, 25, 26, 27]")
             .query(f"o_point=={o_point}")
             .assign(
                 x_cut=lambda x: pd.cut(
