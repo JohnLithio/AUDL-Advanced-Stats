@@ -2363,17 +2363,20 @@ class Game:
                 dftemp = df.groupby(["point_number"]).tail(1)
 
             # Get the number of o and d points each player played
-            player_points = (
-                dftemp.assign(turnover=lambda x: x["num_turnovers"] > 0)
-                .groupby([playerid, "o_point", "turnover", "point_outcome"])[
-                    "point_number"
-                ]
-                .nunique()
-                .rename("points")[1]
-                .reset_index()
-                .assign(playerid=playerid)
-            )
-            points_played.append(player_points)
+            try:
+                player_points = (
+                    dftemp.assign(turnover=lambda x: x["num_turnovers"] > 0)
+                    .groupby([playerid, "o_point", "turnover", "point_outcome"])[
+                        "point_number"
+                    ]
+                    .nunique()
+                    .rename("points")[1]
+                    .reset_index()
+                    .assign(playerid=playerid)
+                )
+                points_played.append(player_points)
+            except:
+                pass
 
         # Get number of o and d points for the entire team
         points_team = df["point_number"].nunique()

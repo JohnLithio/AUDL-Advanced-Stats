@@ -2,7 +2,7 @@
 
 # Don't need this if you're just going to store the data locally
 BUCKET_NAME = "audl-heroku-data"
-YEARS = [2023, 2022, 2021]
+YEARS = [2024, 2023, 2022, 2021]
 CURRENT_YEAR = YEARS[0]
 
 # URL to scrape all the games
